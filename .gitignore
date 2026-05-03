@@ -9,10 +9,11 @@ captures
 local.properties
 xcuserdata
 .env
-.plist
+*.plist
 .env.local
 *.keystore
 *.jks
 key.properties
 google-services.json
 GoogleService-Info.plist
+Info.plist
