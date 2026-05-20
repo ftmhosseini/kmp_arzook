@@ -1,10 +1,11 @@
 package ca.arzook.shared.ui
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.core.content.FileProvider
 import java.io.File
 
-actual fun openPdf(bytes: ByteArray, fileName: String) {
+actual fun openPdf(bytes: ByteArray, fileName: String): Boolean {
     val context = androidAppContext
     val file = File(context.cacheDir, fileName)
     file.writeBytes(bytes)
@@ -13,5 +14,10 @@ actual fun openPdf(bytes: ByteArray, fileName: String) {
         setDataAndType(uri, "application/pdf")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    context.startActivity(intent)
+    return try {
+        context.startActivity(intent)
+        true
+    } catch (e: ActivityNotFoundException) {
+        false
+    }
 }

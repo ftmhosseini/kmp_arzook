@@ -63,7 +63,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
             OutlinedTextField(
                 value = firstName,
                 onValueChange = { firstName = it },
-                label = { Text("First Name") },
+                label = { Text("First Name", fontSize = 10.sp) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -72,7 +72,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
             OutlinedTextField(
                 value = lastName,
                 onValueChange = { lastName = it },
-                label = { Text("Last Name") },
+                label = { Text("Last Name", fontSize = 10.sp) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -85,7 +85,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email") },
+            label = { Text("Email", fontSize = 10.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
@@ -97,7 +97,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
         OutlinedTextField(
             value = password,
             onValueChange = { password = it; passwordError = "" },
-            label = { Text("Password") },
+            label = { Text("Password", fontSize = 10.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
@@ -115,7 +115,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
         OutlinedTextField(
             value = confirmPassword,
             onValueChange = { confirmPassword = it; passwordError = "" },
-            label = { Text("Confirm Password") },
+            label = { Text("Confirm Password", fontSize = 10.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
@@ -130,7 +130,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
         OutlinedTextField(
             value = inviterEmail,
             onValueChange = { inviterEmail = it },
-            label = { Text("Referral Email (optional)") },
+            label = { Text("Referral Email (optional)", fontSize = 10.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
@@ -139,7 +139,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
 
         Spacer(Modifier.height(24.dp))
 
-        Button(
+        ArzookButton(
             onClick = {
                 if (password != confirmPassword) {
                     passwordError = "Passwords do not match"
@@ -147,9 +147,7 @@ fun SignUpScreen(viewModel: AuthViewModel, onSuccess: () -> Unit, onSignIn: () -
                     viewModel.register(firstName, lastName, email, password, inviterEmail.ifBlank { null })
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = loginState !is LoginState.Loading,
-            colors = ButtonDefaults.buttonColors(containerColor = Yellow40)
+            enabled = loginState !is LoginState.Loading
         ) {
             if (loginState is LoginState.Loading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)

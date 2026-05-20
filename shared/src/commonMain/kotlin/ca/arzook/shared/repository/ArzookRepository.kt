@@ -15,6 +15,8 @@ interface ArzookRepository {
     suspend fun register(user: User): Result<User>
     suspend fun getUserDetails(token: String): Result<AuthenticatedData>
     suspend fun updateProfile(token: String, request: UpdateProfileRequest): Result<AuthenticatedData>
+    suspend fun getRateAlerts(token: String): Result<RateAlert>
+    suspend fun saveRateAlerts(token: String, alert: RateAlert): Result<RateAlert>
 
     // Trade
     suspend fun getCurrentRate(token: String): Result<CurrentRate>
@@ -54,5 +56,33 @@ interface ArzookRepository {
     suspend fun createSellingDraftWithItem(token: String, draft: ca.arzook.shared.model.TradeItem): Result<Unit>
     suspend fun printBuyingTrade(token: String, id: String): Result<ByteArray>
     suspend fun printSellingTrade(token: String, id: String): Result<ByteArray>
+    suspend fun uploadPhotoId(token: String, bytes: ByteArray, fileName: String): Result<Unit>
+    suspend fun uploadUtilityBill(token: String, bytes: ByteArray, fileName: String): Result<Unit>
     suspend fun validatePromoCode(token: String, promoCode: String): Result<PromoCodeResponse>
+
+    // Admin
+    suspend fun getAdminWalletItemTypes(token: String): Result<List<DigitalWalletItemType>>
+    suspend fun getAdminWalletItems(
+        token: String,
+        fromDate: String? = null,
+        toDate: String? = null,
+        customer: String? = null,
+        type: String? = null,
+        bank: String? = null
+    ): Result<List<DigitalWalletItem>>
+    suspend fun getAdminBuyingDrafts(token: String, deposited: Boolean = true): Result<List<TradeItem>>
+    suspend fun getAdminSellingDrafts(token: String, deposited: Boolean = true): Result<List<TradeItem>>
+    suspend fun getAdminBuyingDraftById(token: String, id: String): Result<TradeItem>
+    suspend fun getAdminSellingDraftById(token: String, id: String): Result<TradeItem>
+    suspend fun getAdminUser(token: String, userId: String): Result<AuthenticatedData>
+
+    // Admin actions
+    suspend fun adminMarkDeposited(token: String, sellingId: String): Result<Unit>
+    suspend fun adminMarkExchangeDeposited(token: String, sellingId: String): Result<Unit>
+    suspend fun adminTransferToWallet(token: String, sellingId: String): Result<Unit>
+    suspend fun adminComplete(token: String, sellingId: String): Result<Unit>
+    suspend fun adminUploadReceipt(token: String, userId: String, bytes: ByteArray, fileName: String): Result<Unit>
+    suspend fun adminGetUserWallet(token: String, userId: String): Result<WalletStatus>
+    suspend fun adminForwardETransfers(token: String, buyingId: String): Result<Unit>
+    suspend fun adminDeactivateBuying(token: String, buyingId: String): Result<Unit>
 }

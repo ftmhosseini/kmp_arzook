@@ -13,22 +13,25 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ca.arzook.shared.Result
 import ca.arzook.shared.model.AuthenticatedData
 import ca.arzook.shared.model.UpdateProfileRequest
+import ca.arzook.shared.repository.ArzookRepositoryImpl
+import kotlinx.coroutines.launch
 
-private val PBrown = Color(0xFF8B4513)
 
 @Composable
 fun ProfileScreen(
     user: AuthenticatedData?,
     isLoggedIn: Boolean = false,
     authViewModel: AuthViewModel? = null,
-    onUploadPhotoId: () -> Unit = {},
-    onUploadUtilityBill: () -> Unit = {},
+    token: String = "",
 ) {
     if (user == null) {
         Box(Modifier.fillMaxSize().background(Cream40), contentAlignment = Alignment.Center) {
@@ -47,6 +50,41 @@ fun ProfileScreen(
         return
     }
 
+    val repo = remember { ArzookRepositoryImpl(baseUrl = "https://api.arzook.ca") }
+    val scope = rememberCoroutineScope()
+    var uploadMsg by remember { mutableStateOf<String?>(null) }
+    var uploading by remember { mutableStateOf(false) }
+    var photoIdUploaded by remember { mutableStateOf(false) }
+    var utilityBillUploaded by remember { mutableStateOf(false) }
+
+    val photoIdPicker = rememberFilePicker { bytes, name ->
+        uploading = true; uploadMsg = null
+        scope.launch {
+            val r = repo.uploadPhotoId(token, bytes, name)
+            uploadMsg = if (r is Result.Success) "Photo ID uploaded ✓" else "Upload failed"
+            uploading = false
+            if (r is Result.Success) {
+                photoIdUploaded = true
+                kotlinx.coroutines.delay(2000)
+                authViewModel?.loadUserDetails(token)
+            }
+        }
+    }
+
+    val utilityBillPicker = rememberFilePicker { bytes, name ->
+        uploading = true; uploadMsg = null
+        scope.launch {
+            val r = repo.uploadUtilityBill(token, bytes, name)
+            uploadMsg = if (r is Result.Success) "Utility bill uploaded ✓" else "Upload failed"
+            uploading = false
+            if (r is Result.Success) {
+                utilityBillUploaded = true
+                kotlinx.coroutines.delay(2000)
+                authViewModel?.loadUserDetails(token)
+            }
+        }
+    }
+
     var showChangePassword by remember { mutableStateOf(false) }
     var saveSuccess by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -60,15 +98,16 @@ fun ProfileScreen(
     var postalCode by remember(user) { mutableStateOf(user.postalCodeStr ?: "") }
 
     Column(
-        modifier = Modifier.background(Cream40).verticalScroll(rememberScrollState()).padding(16.dp),
+        modifier = Modifier.background(Cream40).verticalScroll(rememberScrollState())
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Filled.AccountCircle, null, Modifier.size(80.dp), tint = PBrown)
+        Icon(Icons.Filled.AccountCircle, null, Modifier.size(80.dp), tint = Brown)
         Spacer(Modifier.height(8.dp))
         Text("${user.firstName} ${user.lastName}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Email, null, tint = PBrown, modifier = Modifier.size(18.dp))
+            Icon(Icons.Filled.Email, null, tint = Brown, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(user.email, color = Color.DarkGray)
         }
@@ -92,11 +131,11 @@ fun ProfileScreen(
         Spacer(Modifier.height(12.dp))
 
         if (saveSuccess) {
-            Text("✓ Profile updated", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold)
+            Text("✓ Profile updated", color = GreenSuccess, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
         }
 
-        Button(
+        ArzookButton(
             onClick = {
                 saving = true
                 saveSuccess = false
@@ -112,11 +151,14 @@ fun ProfileScreen(
                 ) { success -> saving = false; saveSuccess = success }
             },
             enabled = !saving,
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PBrown),
-            modifier = Modifier.fillMaxWidth()
+            containerColor = Brown,
+            contentColor = Color.White
         ) {
-            if (saving) CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+            if (saving) CircularProgressIndicator(
+                Modifier.size(18.dp),
+                color = Color.White,
+                strokeWidth = 2.dp
+            )
             else Text("Save Changes", color = Color.White)
         }
 
@@ -124,23 +166,44 @@ fun ProfileScreen(
         HorizontalDivider(color = Color.Gray)
         Spacer(Modifier.height(12.dp))
 
-        // Document upload section
-        PhotoIdSection(
-            user = user,
-            onUploadPhotoId = onUploadPhotoId,
-            onUploadUtilityBill = onUploadUtilityBill
-        )
+        // Document upload section - only show if profile info is filled
+        val profileComplete =
+            phone.isNotBlank() && birthday.isNotBlank() && address.isNotBlank() && city.isNotBlank() && postalCode.isNotBlank()
+        if (profileComplete || user.photoIdAttached == true) {
+            PhotoIdSection(
+                user = user,
+                onUploadPhotoId = { photoIdPicker.launch() },
+                onUploadUtilityBill = { utilityBillPicker.launch() },
+                photoIdUploaded = photoIdUploaded,
+                bothUploaded = user.utilityBillFileName != null && user.photoIdFileName != null
+            )
+        } else {
+            Text(
+                "Please fill in your profile information above before uploading documents.",
+                color = OrangeDark,
+                fontSize = 13.sp
+            )
+        }
+        if (uploading) {
+            Spacer(Modifier.height(8.dp))
+            CircularProgressIndicator(Modifier.size(24.dp))
+        }
+        uploadMsg?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                it,
+                color = if ("✓" in it) GreenSuccess else Color.Red,
+                fontWeight = FontWeight.Bold
+            )
+        }
 
         // Change password (local accounts only)
         if (user.provider == "local") {
             Spacer(Modifier.height(16.dp))
             HorizontalDivider(color = Color.Gray)
             Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = { showChangePassword = !showChangePassword },
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Yellow40, contentColor = Color.Black),
-                modifier = Modifier.fillMaxWidth()
+            ArzookButton(
+                onClick = { showChangePassword = !showChangePassword }
             ) { Text(if (showChangePassword) "Cancel" else "Change Password") }
             AnimatedVisibility(visible = showChangePassword) { ChangePasswordForm() }
         }
@@ -150,22 +213,29 @@ fun ProfileScreen(
 @Composable
 private fun EditableProfileField(label: String, value: String, onValueChange: (String) -> Unit) {
     var editing by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(label, fontSize = 10.sp) },
         readOnly = !editing,
         trailingIcon = {
-            IconButton(onClick = { editing = !editing }) {
+            IconButton(onClick = {
+                editing = !editing
+            }) {
                 Icon(
                     if (editing) Icons.Filled.Check else Icons.Filled.Edit,
                     contentDescription = if (editing) "Done" else "Edit",
-                    tint = PBrown
+                    tint = Brown
                 )
             }
         },
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            .focusRequester(focusRequester)
     )
+    LaunchedEffect(editing) {
+        if (editing) focusRequester.requestFocus()
+    }
 }
 
 @Composable
@@ -173,68 +243,134 @@ private fun PhotoIdSection(
     user: AuthenticatedData,
     onUploadPhotoId: () -> Unit,
     onUploadUtilityBill: () -> Unit,
+    photoIdUploaded: Boolean = false,
+    bothUploaded: Boolean = false,
 ) {
     val verified = user.photoIdVerified == true
-    val attached = user.photoIdAttached == true
+    val expired = remember(user.photoIdExpiryDate) {
+        user.photoIdExpiryDate?.take(10)?.let { expiry ->
+            currentDateString() > expiry
+        } ?: false
+    }
 
-    if (verified) {
+    if (verified && !expired) {
         Row(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFE8F5E9)).padding(12.dp),
+                .background(GreenLight).padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(Icons.Filled.Verified, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(24.dp))
+            Icon(Icons.Filled.Verified, null, tint = GreenDark, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Your photo ID has been verified", color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+            Text("Your photo ID has been verified", color = GreenDark, fontWeight = FontWeight.Bold)
+        }
+        return
+    }
+
+    if (expired) {
+        Column(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                .background(RedLight).padding(12.dp)
+        ) {
+            if (photoIdUploaded) {
+                Text("Your documents are under review.", color = BrownText, fontSize = 13.sp)
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.Warning,
+                        null,
+                        tint = RedDark,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Photo ID Expired", fontWeight = FontWeight.Bold, color = RedDark)
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Your photo ID expired on ${user.photoIdExpiryDate?.take(10)}. Please upload a new valid government-issued photo ID.",
+                    fontSize = 13.sp, color = RedDark
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onUploadPhotoId,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RedDark)
+                ) { Text("Upload New Photo ID", color = Color.White) }
+            }
         }
         return
     }
 
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFFFF3E0)).padding(12.dp)
+            .background(OrangeLight).padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Warning, null, tint = Color(0xFFE65100), modifier = Modifier.size(20.dp))
+            Icon(Icons.Filled.Warning, null, tint = OrangeDark, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Documents Required", fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
+            Text("Documents Required", fontWeight = FontWeight.Bold, color = OrangeDark)
         }
         Spacer(Modifier.height(6.dp))
-
-        if (attached && !verified) {
+        if (bothUploaded) {
+            Text("Your documents are under review.", color = BrownText, fontSize = 13.sp)
+            return
+        } else {
             if (user.photoIdRejected != null) {
-                Text("Your ID was rejected: ${user.photoIdRejectedNote ?: "Please upload a new valid ID."}",
-                    color = Color(0xFFB71C1C), fontSize = 13.sp)
-            } else {
-                Text("Your documents are under review.", color = Color(0xFF5D4037), fontSize = 13.sp)
+                Text(
+                    "Your ID was rejected: ${user.photoIdRejectedNote ?: "Please upload a new valid ID."}",
+                    color = RedDark, fontSize = 13.sp
+                )
+            } else if(user.utilityBillFileName != null && user.photoIdFileName != null){
+                Text("Your documents are under review.", color = BrownText, fontSize = 13.sp)
                 return
             }
-        } else {
-            Text(
-                "Please upload the following two documents:",
-                fontSize = 13.sp, color = Color(0xFF5D4037), fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(4.dp))
-            Text("• Government-issued photo ID (passport, driver's license)", fontSize = 13.sp, color = Color(0xFF5D4037))
-            Text("• Proof of address (utility bill, bank statement)", fontSize = 13.sp, color = Color(0xFF5D4037))
-        }
+        }//else {
+            Column {
+                Text(
+                    "Please upload the following two documents:",
+                    fontSize = 13.sp, color = BrownText, fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "• Government-issued photo ID (passport, driver's license)",
+                    fontSize = 13.sp,
+                    color = BrownText
+                )
+                Text(
+                    "• Proof of address (utility bill, bank statement)",
+                    fontSize = 13.sp,
+                    color = BrownText
+                )
+            }
 
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Button(
                 onClick = onUploadPhotoId,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Yellow40, contentColor = Color.Black)
-            ) { Text(if (user.photoIdRejected != null) "New Photo ID" else "Upload Photo ID", fontSize = 12.sp) }
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Yellow40,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text(
+                    if (user.photoIdRejected != null) "New Photo ID" else "Upload Photo ID",
+                    fontSize = 12.sp
+                )
+            }
             Button(
                 onClick = onUploadUtilityBill,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PBrown)
+                colors = ButtonDefaults.buttonColors(containerColor = Brown)
             ) { Text("Upload Utility Bill", color = Color.White, fontSize = 12.sp) }
         }
+     //   }
     }
 }
 
@@ -254,13 +390,28 @@ private fun ChangePasswordForm() {
             .background(Color.White).padding(16.dp)
     ) {
         if (errorMsg.isNotEmpty()) Text(errorMsg, color = MaterialTheme.colorScheme.error)
-        if (successMsg.isNotEmpty()) Text(successMsg, color = Color(0xFF4CAF50))
+        if (successMsg.isNotEmpty()) Text(successMsg, color = GreenSuccess)
         Spacer(Modifier.height(8.dp))
-        PasswordField("Old Password", oldPassword, oldVisible, { oldPassword = it }, { oldVisible = !oldVisible })
+        PasswordField(
+            "Old Password",
+            oldPassword,
+            oldVisible,
+            { oldPassword = it },
+            { oldVisible = !oldVisible })
         Spacer(Modifier.height(8.dp))
-        PasswordField("New Password", newPassword, newVisible, { newPassword = it }, { newVisible = !newVisible })
+        PasswordField(
+            "New Password",
+            newPassword,
+            newVisible,
+            { newPassword = it },
+            { newVisible = !newVisible })
         Spacer(Modifier.height(8.dp))
-        PasswordField("Confirm Password", confirmPassword, confirmVisible, { confirmPassword = it }, { confirmVisible = !confirmVisible })
+        PasswordField(
+            "Confirm Password",
+            confirmPassword,
+            confirmVisible,
+            { confirmPassword = it },
+            { confirmVisible = !confirmVisible })
         Spacer(Modifier.height(12.dp))
         Button(
             onClick = {
@@ -268,22 +419,30 @@ private fun ChangePasswordForm() {
                     oldPassword.isEmpty() -> "Enter your old password."
                     newPassword.length < 6 -> "New password must be at least 6 characters."
                     newPassword != confirmPassword -> "Passwords don't match."
-                    else -> { successMsg = "Password updated."; "" }
+                    else -> {
+                        successMsg = "Password updated."; ""
+                    }
                 }
             },
             shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PBrown),
+            colors = ButtonDefaults.buttonColors(containerColor = Brown),
             modifier = Modifier.fillMaxWidth()
         ) { Text("Update Password", color = Color.White) }
     }
 }
 
 @Composable
-private fun PasswordField(label: String, value: String, visible: Boolean, onChange: (String) -> Unit, onToggle: () -> Unit) {
+private fun PasswordField(
+    label: String,
+    value: String,
+    visible: Boolean,
+    onChange: (String) -> Unit,
+    onToggle: () -> Unit
+) {
     OutlinedTextField(
-        value = value, onValueChange = onChange, label = { Text(label) }, singleLine = true,
+        value = value, onValueChange = onChange, label = { Text(label, fontSize = 10.sp) }, singleLine = true,
         visualTransformation = if (visible) androidx.compose.ui.text.input.VisualTransformation.None
-                               else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        else androidx.compose.ui.text.input.PasswordVisualTransformation(),
         trailingIcon = {
             IconButton(onClick = onToggle) {
                 Icon(if (visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff, null)

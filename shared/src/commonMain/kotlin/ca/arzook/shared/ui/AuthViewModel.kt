@@ -68,10 +68,14 @@ class AuthViewModel(
     fun login(email: String, password: String) {
         scope.launch {
             _loginState.value = LoginState.Loading
-            println("[Auth] login attempt: $email")
-            val recaptcha = getRecaptchaToken("login")
+            println("[Auth] login attempt: $email & password: $password")
+            val recaptcha = try {
+                kotlinx.coroutines.withTimeoutOrNull(5000) { getRecaptchaToken("login") } ?: ""
+            } catch (_: Exception) { "" }
+            println("[Auth] recaptcha attempt: $recaptcha")
             when (val result = repo.login(LoginRequest(email, password, recaptcha))) {
                 is Result.Success -> {
+                    println("[Auth] login success, token=${result},,,${result.data}")
                     val t = result.data.resolvedToken()
                     println("[Auth] login success, token=${t}")
                     if (t.isEmpty()) {

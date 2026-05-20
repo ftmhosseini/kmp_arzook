@@ -1,5 +1,6 @@
 package ca.arzook.shared.repository
 
+import ca.arzook.shared.BuildConfig
 import ca.arzook.shared.Result
 import ca.arzook.shared.model.*
 import ca.arzook.shared.network.createHttpClient
@@ -42,14 +43,20 @@ class ArzookRepositoryImpl(
             val response = client.post("$baseUrl/api/auth/login") {
                 contentType(ContentType.Application.Json)
                 withOrigin()
-                parameter("recaptchaV3Token", request.recaptchaToken)
-                setBody(mapOf("email" to request.email, "password" to request.password))
+                setBody(mapOf("email" to request.email, "password" to request.password))//, "recaptchaV3Token" to request.recaptchaToken))
             }
             val bodyText = response.bodyAsText()
             println("[login] status=${response.status} rawBody=$bodyText")
-            val raw = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(LoginResponse.serializer(), bodyText)
-            println("[login] parsed: accessToken=${raw.accessToken} tokenType=${raw.tokenType} resolved=${raw.resolvedToken()}")
-            Result.Success(raw)
+            val raw = try {
+                kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(LoginResponse.serializer(), bodyText)
+            } catch (_: Exception) { LoginResponse() }
+            val resolved = if (raw.resolvedToken().isNotEmpty()) raw else {
+                val token = Regex(""""(?:accessToken|access_token|token|userToken|id_token)"\s*:\s*"([^"]+)"""")
+                    .find(bodyText)?.groupValues?.get(1)
+                if (token != null) LoginResponse(accessToken = token) else raw
+            }
+            println("[login] parsed: accessToken=${resolved.accessToken} tokenType=${resolved.tokenType} resolved=${resolved.resolvedToken()}")
+            Result.Success(resolved)
         } catch (e: Exception) {
             println("[login] exception: ${e.message}")
             Result.Error(e.message ?: "Unknown error")
@@ -66,6 +73,8 @@ class ArzookRepositoryImpl(
 
     override suspend fun googleSignIn(idToken: String): Result<LoginResponse> {
         return try {
+            println("[SignInGoogle] $idToken")
+            val clientId = BuildConfig.GOOGLE_CLIENT_ID_WEB
             val response = client.post("$baseUrl/api/auth/social-login") {
                 contentType(ContentType.Application.Json)
                 withOrigin()
@@ -120,8 +129,20 @@ class ArzookRepositoryImpl(
         client.get("$baseUrl/api/main/rate-stats?selectedCurrencyCode=undefined") { header(HttpHeaders.Authorization, token.bearer()) }.body()
     }
 
+    override suspend fun getRateAlerts(token: String): Result<RateAlert> = safeCall {
+        client.get("$baseUrl/api/rate-alerts") { header(HttpHeaders.Authorization, token.bearer()) }.body()
+    }
+
+    override suspend fun saveRateAlerts(token: String, alert: RateAlert): Result<RateAlert> = safeCall {
+        client.post("$baseUrl/api/rate-alerts") {
+            header(HttpHeaders.Authorization, token.bearer())
+            contentType(ContentType.Application.Json)
+            setBody(alert)
+        }.body()
+    }
+
     override suspend fun getWalletStatus(token: String): Result<WalletStatus> = safeCall {
-        client.get("$baseUrl/api/digital-wallet") { header(HttpHeaders.Authorization, token.bearer()) }.body()
+        client.get("$baseUrl/api/digital-wallet/items") { header(HttpHeaders.Authorization, token.bearer()) }.body()
     }
 
     override suspend fun getWatchList(token: String): Result<List<WatchItem>> = safeCall {
@@ -311,18 +332,6 @@ class ArzookRepositoryImpl(
         Unit
     }
 
-    override suspend fun updateBuyingAmount(
-        token: String,
-        id: String,
-        amount: Double
-    ): Result<Unit> {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun updateBuyingRate(token: String, id: String, rate: Double): Result<Unit> {
-        TODO("Not yet implemented")
-    }
-
     override suspend fun deleteBuyingDraft(token: String, id: String): Result<Unit> = safeCall {
         client.delete("$baseUrl/api/buyings/$id") { header(HttpHeaders.Authorization, token.bearer()) }
         Unit
@@ -330,6 +339,23 @@ class ArzookRepositoryImpl(
 
     override suspend fun deleteSellingDraft(token: String, id: String): Result<Unit> = safeCall {
         client.delete("$baseUrl/api/sellings/$id") { header(HttpHeaders.Authorization, token.bearer()) }
+        Unit
+    }
+    override suspend fun updateBuyingAmount(token: String, id: String, amount: Double): Result<Unit> = safeCall {
+        client.put("$baseUrl/api/buyings/update-amount/$id") {
+            header(HttpHeaders.Authorization, token.bearer())
+            contentType(ContentType.Application.Json)
+            setBody(ca.arzook.shared.model.UpdateSellingAmountRequest(amount = amount.toString()))
+        }
+        Unit
+    }
+
+    override suspend fun updateBuyingRate(token: String, id: String, rate: Double): Result<Unit> = safeCall {
+        client.put("$baseUrl/api/buyings/update-asking-rate/$id") {
+            header(HttpHeaders.Authorization, token.bearer())
+            contentType(ContentType.Application.Json)
+            setBody(ca.arzook.shared.model.UpdateSellingRateRequest(rate = rate.toString()))
+        }
         Unit
     }
 
@@ -375,19 +401,81 @@ class ArzookRepositoryImpl(
     }
 
     override suspend fun printBuyingTrade(token: String, id: String): Result<ByteArray> = safeCall {
-        client.post("$baseUrl/api/trades/print-buying-trade") {
+        val response = client.post("$baseUrl/api/trades/print-buying-trade") {
             header(HttpHeaders.Authorization, token.bearer())
-            contentType(ContentType.Application.Json)
-            setBody(mapOf("id" to id))
-        }.body()
+            header(HttpHeaders.Accept, "*/*")
+            contentType(ContentType.Text.Plain)
+            withOrigin()
+            setBody(id)
+        }
+        println("[printBuyingTrade] status=${response.status}")
+        if (!response.status.isSuccess()) throw Exception("${response.status}: ${response.bodyAsText()}")
+        val bytes = response.readRawBytes()
+        println("[printBuyingTrade] bytes.size=${bytes.size} first4=${bytes.take(4).map { it.toInt().and(0xFF).toString(16) }}")
+        decodeIfBase64(bytes)
     }
 
     override suspend fun printSellingTrade(token: String, id: String): Result<ByteArray> = safeCall {
-        client.post("$baseUrl/api/trades/print-selling-trade") {
+        val response = client.post("$baseUrl/api/trades/print-selling-trade") {
             header(HttpHeaders.Authorization, token.bearer())
-            contentType(ContentType.Application.Json)
-            setBody(mapOf("id" to id))
-        }.body()
+            header(HttpHeaders.Accept, "*/*")
+            contentType(ContentType.Text.Plain)
+            withOrigin()
+            setBody(id)
+        }
+        println("[printSellingTrade] status=${response.status}")
+        if (!response.status.isSuccess()) throw Exception("${response.status}: ${response.bodyAsText()}")
+        val bytes = response.readRawBytes()
+        decodeIfBase64(bytes)
+    }
+
+    private fun decodeIfBase64(bytes: ByteArray): ByteArray {
+        val str = bytes.decodeToString()
+        return if (str.startsWith("\"")) {
+            kotlin.io.encoding.Base64.decode(str.trim('"'))
+        } else if (!str.startsWith("%PDF") && str.length > 10 && str.all { it.code in 32..126 || it == '\n' || it == '\r' }) {
+            kotlin.io.encoding.Base64.decode(str)
+        } else {
+            bytes
+        }
+    }
+
+    override suspend fun uploadPhotoId(token: String, bytes: ByteArray, fileName: String): Result<Unit> = safeCall {
+        println("[uploadPhotoId] size=${bytes.size} fileName=$fileName")
+        val response = client.post("$baseUrl/api/profile/upload-documents") {
+            header(HttpHeaders.Authorization, token.bearer())
+            withOrigin()
+            setBody(io.ktor.client.request.forms.MultiPartFormDataContent(
+                io.ktor.client.request.forms.formData {
+                    append("photoIdFile", bytes, io.ktor.http.Headers.build {
+                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                        append(HttpHeaders.ContentType, contentTypeFromFileName(fileName))
+                    })
+                }
+            ))
+        }
+        val body = response.bodyAsText()
+        println("[uploadPhotoId] status=${response.status} body=$body")
+        if (!response.status.isSuccess()) throw Exception("${response.status}: $body")
+    }
+
+    override suspend fun uploadUtilityBill(token: String, bytes: ByteArray, fileName: String): Result<Unit> = safeCall {
+        println("[uploadUtilityBill] size=${bytes.size} fileName=$fileName")
+        val response = client.post("$baseUrl/api/profile/upload-documents") {
+            header(HttpHeaders.Authorization, token.bearer())
+            withOrigin()
+            setBody(io.ktor.client.request.forms.MultiPartFormDataContent(
+                io.ktor.client.request.forms.formData {
+                    append("utilityBillFile", bytes, io.ktor.http.Headers.build {
+                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                        append(HttpHeaders.ContentType, contentTypeFromFileName(fileName))
+                    })
+                }
+            ))
+        }
+        val body = response.bodyAsText()
+        println("[uploadUtilityBill] status=${response.status} body=$body")
+        if (!response.status.isSuccess()) throw Exception("${response.status}: $body")
     }
 
     override suspend fun validatePromoCode(token: String, promoCode: String): Result<PromoCodeResponse> = safeCall {
@@ -395,5 +483,133 @@ class ArzookRepositoryImpl(
             header(HttpHeaders.Authorization, token.bearer())
             withOrigin()
         }.body()
+    }
+
+    override suspend fun getAdminWalletItemTypes(token: String): Result<List<DigitalWalletItemType>> = safeCall {
+        client.get("$baseUrl/api/admin/digital-wallet-item-types") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun getAdminWalletItems(
+        token: String,
+        fromDate: String?,
+        toDate: String?,
+        customer: String?,
+        type: String?,
+        bank: String?
+    ): Result<List<DigitalWalletItem>> = safeCall {
+        client.get("$baseUrl/api/admin/digital-wallet-items") {
+            header(HttpHeaders.Authorization, token.bearer())
+            fromDate?.let { parameter("fromDate", it) }
+            toDate?.let { parameter("toDate", it) }
+            customer?.let { parameter("customer", it) }
+            type?.let { parameter("type", it) }
+            bank?.let { parameter("bank", it) }
+        }.body()
+    }
+
+    override suspend fun getAdminBuyingDrafts(token: String, deposited: Boolean): Result<List<TradeItem>> = safeCall {
+        client.get("$baseUrl/api/admin/buying-drafts/$deposited") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun getAdminSellingDrafts(token: String, deposited: Boolean): Result<List<TradeItem>> = safeCall {
+        client.get("$baseUrl/api/admin/selling-drafts/$deposited") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun getAdminBuyingDraftById(token: String, id: String): Result<TradeItem> = safeCall {
+        client.get("$baseUrl/api/admin/buying-draft/$id") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun getAdminSellingDraftById(token: String, id: String): Result<TradeItem> = safeCall {
+        client.get("$baseUrl/api/admin/selling-draft/$id") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun getAdminUser(token: String, userId: String): Result<AuthenticatedData> = safeCall {
+        client.get("$baseUrl/api/admin/user/$userId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun adminMarkDeposited(token: String, sellingId: String): Result<Unit> = safeCall {
+        client.post("$baseUrl/api/admin/selling-draft/deposited/$sellingId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }
+        Unit
+    }
+
+    override suspend fun adminMarkExchangeDeposited(token: String, sellingId: String): Result<Unit> = safeCall {
+        client.post("$baseUrl/api/admin/selling-draft/exchange-deposited/$sellingId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }
+        Unit
+    }
+
+    override suspend fun adminTransferToWallet(token: String, sellingId: String): Result<Unit> = safeCall {
+        client.post("$baseUrl/api/admin/selling-draft/transfer-to-wallet/$sellingId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }
+        Unit
+    }
+
+    override suspend fun adminComplete(token: String, sellingId: String): Result<Unit> = safeCall {
+        client.post("$baseUrl/api/admin/selling-draft/complete/$sellingId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }
+        Unit
+    }
+
+    override suspend fun adminUploadReceipt(token: String, userId: String, bytes: ByteArray, fileName: String): Result<Unit> = safeCall {
+        client.post("$baseUrl/api/admin/upload-receipt/$userId") {
+            header(HttpHeaders.Authorization, token.bearer())
+            setBody(io.ktor.client.request.forms.MultiPartFormDataContent(
+                io.ktor.client.request.forms.formData {
+                    append("file", bytes, io.ktor.http.Headers.build {
+                        append(HttpHeaders.ContentDisposition, "form-data; name=\"file\"; filename=\"$fileName\"")
+                        append(HttpHeaders.ContentType, "application/octet-stream")
+                    })
+                }
+            ))
+        }
+        Unit
+    }
+
+    override suspend fun adminGetUserWallet(token: String, userId: String): Result<WalletStatus> = safeCall {
+        client.get("$baseUrl/api/admin/user-wallet/$userId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun adminForwardETransfers(token: String, buyingId: String): Result<Unit> = safeCall {
+        client.post("$baseUrl/api/admin/buying-draft/forward-etransfers/$buyingId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }
+        Unit
+    }
+
+    override suspend fun adminDeactivateBuying(token: String, buyingId: String): Result<Unit> = safeCall {
+        client.post("$baseUrl/api/admin/buying-draft/deactivate/$buyingId") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }
+        Unit
+    }
+
+    private fun contentTypeFromFileName(fileName: String): String {
+        val ext = fileName.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "pdf" -> "application/pdf"
+            "svg" -> "image/svg+xml"
+            else -> "application/octet-stream"
+        }
     }
 }

@@ -3,8 +3,10 @@ package ca.arzook.shared.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Visibility
@@ -33,13 +35,14 @@ fun LoginScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit, onSignUp: 
     val focusManager = LocalFocusManager.current
     val loginState by viewModel.loginState.collectAsState()
     val uriHandler = LocalUriHandler.current
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(loginState) {
         if (loginState is LoginState.Success) onLoginSuccess()
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -59,7 +62,7 @@ fun LoginScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit, onSignUp: 
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
-            label = { Text("Email") },
+            label = { Text("Email", fontSize = 10.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
@@ -76,7 +79,7 @@ fun LoginScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit, onSignUp: 
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") },
+            label = { Text("Password", fontSize = 10.sp) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
@@ -94,11 +97,9 @@ fun LoginScreen(viewModel: AuthViewModel, onLoginSuccess: () -> Unit, onSignUp: 
 
         Spacer(Modifier.height(24.dp))
 
-        Button(
+        ArzookButton(
             onClick = { viewModel.login(email, password) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = loginState !is LoginState.Loading,
-            colors = ButtonDefaults.buttonColors(containerColor = Yellow40)
+            enabled = loginState !is LoginState.Loading
         ) {
             if (loginState is LoginState.Loading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)

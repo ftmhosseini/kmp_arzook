@@ -62,7 +62,7 @@ fun Chart(modifier: Modifier = Modifier, homeViewModel: HomeViewModel) {
             .padding(16.dp)
             .clip(RoundedCornerShape(16.dp))
             .border(1.dp, Color.Black)
-            .background(Cream40)
+            .background(Color.White)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -104,7 +104,7 @@ fun LineChart(
     ) {
         val strokeWidthPx = strokeWidth.toPx()
         val axisThicknessPx = 1.dp.toPx()
-        val axisColor = Color.LightGray
+        val axisColor = Color.DarkGray
 
         // Define spacing for labels
         val bottomAreaHeight = 40.dp.toPx()
@@ -129,7 +129,7 @@ fun LineChart(
             // Y-Axis Label (e.g., 8000, 16000)
             drawText(
                 textMeasurer = textMeasurer,
-                text = value.toInt().toString(),
+                text = formatIrr(value.toDouble()).toString(),
                 style = labelStyle,
                 topLeft = Offset(0f, y - (10.sp.toPx()))
             )

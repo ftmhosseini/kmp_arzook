@@ -1,6 +1,7 @@
 package ca.arzook.shared.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class UpdateSellingAmountRequest(
@@ -79,6 +80,7 @@ data class LockedTrade(
     val id: String = "",
     val offeringId: String? = null,
     val buyerId: String = "",
+    val complianceFee: Double = 0.0,
     val arzookBankInfoName: String? = null,
     val arzookBankInfoSheba: String? = null,
     val arzookDepositEmail: String? = null,
@@ -91,9 +93,17 @@ data class LockedTrade(
 @Serializable
 data class WalletStatus(
     val userId: String = "",
-    val balance: Int = 0,
-    val holdCredit: Int = 0,
+    val balance: Long = 0,
+    val holdCredit: Long = 0,
     val lastUpdated: String = ""
+)
+
+@Serializable
+data class DigitalWalletItemType(
+    val id: String? = null,
+    val name: String? = null,
+    val code: String? = null,
+    val description: String? = null
 )
 
 @Serializable
@@ -106,8 +116,15 @@ data class DigitalWalletItem(
     val date: String,
     val description: String? = null,
     val trackingNumber: Long? = null,
-    val type: String
+    val type: String,
+    val userFullName: String? = null,
+    val customerDepositId: String? = null,
+    val bank: String? = null,
+    val offeringId: String? = null,
+    val confirmedDate: String? = null,
+    val rejectedDate: String? = null,
 )
+
 
 @Serializable
 data class TradeItem(
@@ -135,7 +152,10 @@ data class TradeItem(
     val sellerName: String? = null,
     val sellerEmail: String? = null,
     val sellerPhone: String? = null,
+    val buyingNumber: Long? = null,
+    val sellingNumber: Long? = null,
     val createdTime: String? = null,
+    val exchangeDepositedTime: String? = null,
     val deposited: Boolean? = null,
     val depositedDate: String? = null,
     val advertised: Boolean? = null,
@@ -163,7 +183,7 @@ data class TradeItem(
     val nowruzGiftEnabled: Boolean? = false,
     val zakatAlFitrEnabled: Boolean? = false,
     val urgent: Boolean? = null,
-    val promotion: String? = null,
+    val promotion: JsonElement? = null,
     val totalCopied: Boolean? = null,
     val shebaCopied: Boolean? = null,
     val locked: Boolean? = null,
@@ -175,11 +195,15 @@ data class TradeItem(
     val buyerEmail: String? = null,
     val buyerPhone: String? = null,
     val holdTransactionFee: Int? = null,
+    val complianceFee: Double = 0.0,
+    val serviceRate: Double? = null,
+    val total: Double? = null,
+    val netPayout: Double? = null,
     val timeZoneId: String? = null,
     val arzookBankInfoName: String? = null,
     val arzookBankInfoSheba: String? = null,
     val customerDepositId: Int? = null,
-    val sellingPaymentMethod: String? = null,
+    val sellingPaymentMethod: PaymentMethod? = null,
     val smartMatchingEnabled: Boolean? = null,
     val selling: Boolean = false,
     val status: Status? = null

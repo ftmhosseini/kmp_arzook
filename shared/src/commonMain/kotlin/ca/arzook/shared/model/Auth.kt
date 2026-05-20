@@ -14,9 +14,7 @@ data class LoginRequest(
 @Serializable
 data class LoginResponse(
     val accessToken: String = "",
-    val tokenType: String = "",
-//    val token: String = "",
-//    val userToken: String = ""
+    val tokenType: String = ""
 ) {
     fun resolvedToken(): String {
         if (accessToken.isEmpty()) return ""
@@ -36,6 +34,12 @@ data class User(
 
 private fun JsonElement?.asStringOrNull(): String? =
     try { this?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() } } catch (_: Exception) { null }
+
+@Serializable
+data class PhotoIdType(
+    val value: Int? = null,
+    val title: String? = null
+)
 
 @Serializable
 data class AuthenticatedData(
@@ -62,6 +66,7 @@ data class AuthenticatedData(
     val photoIdRejected: String? = null,
     val photoIdRejectedDate: String? = null,
     val photoIdRejectedNote: String? = null,
+    val photoIdType: PhotoIdType? = null,
     val photoIdVerified: Boolean? = null,
     val photoIdVerifiedDate: String? = null,
     val pictureUrl: String? = null,
@@ -69,7 +74,8 @@ data class AuthenticatedData(
     val provider: String? = null,
     val updatedAt: String? = null,
     val utilityBillFileName: String? = null,
-    val utilityBillFileType: String? = null
+    val utilityBillFileType: String? = null,
+    val admin: Boolean? = null
 ) {
     val cityStr: String? get() = city.asStringOrNull()
     val addressStr: String? get() = address.asStringOrNull()
@@ -83,6 +89,20 @@ sealed class AuthState {
     data class Authenticated(val data: AuthenticatedData) : AuthState()
     data class Error(val message: String) : AuthState()
 }
+
+@Serializable
+data class RateAlert(
+    val sellingEnabled: Boolean? = null,
+    val minSellingRate: Double? = null,
+    val minSellingAmount: Double? = null,
+    val maxSellingRate: Double? = null,
+    val maxSellingAmount: Double? = null,
+    val buyingEnabled: Boolean? = null,
+    val minBuyingRate: Double? = null,
+    val minBuyingAmount: Double? = null,
+    val maxBuyingRate: Double? = null,
+    val maxBuyingAmount: Double? = null
+)
 
 @Serializable
 data class UpdateProfileRequest(

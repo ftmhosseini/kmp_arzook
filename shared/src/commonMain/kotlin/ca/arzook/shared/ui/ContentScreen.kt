@@ -1,6 +1,7 @@
 package ca.arzook.shared.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,10 +24,32 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @Composable
 fun ContentScreen(title: String, onBack: () -> Unit) {
     var isFarsi by remember { mutableStateOf(false) }
+    var fullscreenVideoId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    fullscreenVideoId?.let { id ->
+        Dialog(
+            onDismissRequest = { fullscreenVideoId = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            LandscapeEffect()
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                YoutubePlayer(videoId = id, modifier = Modifier.fillMaxSize())
+                TextButton(
+                    onClick = { fullscreenVideoId = null },
+                    modifier = Modifier.align(Alignment.TopStart)
+                ) { Text("✕ Close", color = Color.White) }
+            }
+        }
+    }
 
     val direction = if (isFarsi) LayoutDirection.Rtl else LayoutDirection.Ltr
     CompositionLocalProvider(LocalLayoutDirection provides direction) {
@@ -41,7 +65,7 @@ fun ContentScreen(title: String, onBack: () -> Unit) {
             when (title) {
                 "About Us" -> if (isFarsi) AboutUsFa() else AboutUsContent()
                 "How It Works" -> if (isFarsi) HowItWorksFa() else HowItWorksContent()
-                "FAQ" -> if (isFarsi) FaqFa() else FaqContent()
+                "FAQ" -> if (isFarsi) FaqFa(onFullscreen = { fullscreenVideoId = it }) else FaqContent(onFullscreen = { fullscreenVideoId = it })
                 "Privacy Policy" -> if (isFarsi) PrivacyPolicyFa() else PrivacyPolicyContent()
                 "Terms and Conditions" -> if (isFarsi) TermsFa() else TermsContent()
                 "Contact Us" -> if (isFarsi) ContactUsFa() else ContactUsContent()
@@ -101,8 +125,7 @@ private fun toFarsiTitle(title: String) = when (title) {
     )
 }
 
-private val SellerColor = Color(0xFF4a5eab)
-private val BuyerColor = Color(0xFFd4af37)
+
 
 private enum class StepIcon { Arrow, Dot }
 private data class StepRow(
@@ -178,7 +201,7 @@ private fun StepRowItem(row: StepRow) {
     }
 }
 
-@Composable fun FaqContent() {
+@Composable fun FaqContent(onFullscreen: (String) -> Unit = {}) {
     FaqItem(
         question = "What are the benefits of using Arzook for money transfers?",
         answer = "Arzook offers several benefits to make your money transfer experience faster, simpler, and more efficient. " +
@@ -226,7 +249,8 @@ private fun StepRowItem(row: StepRow) {
                 " - As soon as the Buyer deposits your e-Transfer, your payee will receive the exchanged Rial in Iran.\n\n" +
                 "Note 1: Follow the instructions in the Selling for e-Transfer message and security answer. This will be used to process your e-Transfer.\n" +
                 "Note 2: Arzook is a highly competitive market and finding the right exchange rate is important. Check the HOME page for the current best rates prior to deciding on your desired exchange rate.",
-        videoId = "7_J0CRi731I"
+        videoId = "7_J0CRi731I",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "How to send money from Canada to Iran taking an existing Buying?",
@@ -237,7 +261,8 @@ private fun StepRowItem(row: StepRow) {
                 " - The e-Transfer will be sent to the Buyer. As soon as the Buyer deposits the e-Transfer, you will receive the exchanged Rial in Iran.\n\n" +
                 "Note 1: Follow the instructions in the Selling for e-Transfer message and security answer.\n" +
                 "Note 2: The e-Transfer must be received by Arzook platform before the lock expiry time. Otherwise, the system will automatically delete your Selling.",
-        videoId = "sXJ3UudTHcA"
+        videoId = "sXJ3UudTHcA",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "How do the exchange rates get set on Arzook?",
@@ -281,7 +306,8 @@ private fun StepRowItem(row: StepRow) {
                 "Note 1: Follow the instructions in the Buying to deposit Rial.\n" +
                 "Note 2: Arzook is a highly competitive market. Check the HOME page for the current best rates prior to deciding on your desired exchange rate.\n" +
                 "Note 3: The e-Transfer password (security answer) will be displayed on your Buying once locked by a Seller.",
-        videoId = "sfkoBcsh9As"
+        videoId = "sfkoBcsh9As",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "How to send money from Iran to Canada taking an existing Selling?",
@@ -291,7 +317,8 @@ private fun StepRowItem(row: StepRow) {
                 " - Once your payment is confirmed, we will forward you the e-Transfer.\n\n" +
                 "Note 1: You must notify Arzook of the Rial deposit from the Buying before the lock expiry time. Otherwise, the system will automatically delete your Buying.\n" +
                 "Note 2: The e-Transfer password, security answer, will be displayed on your Buying once deposited.",
-        videoId = "TsALuxwm3rc"
+        videoId = "TsALuxwm3rc",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "Why does Arzook give a limited time for buyers to review and lock a Selling when creating a new Buying?",
@@ -355,7 +382,7 @@ private fun StepRowItem(row: StepRow) {
 
 @Composable fun HowItWorksFa() = HowItWorksContent()
 
-@Composable fun FaqFa() {
+@Composable fun FaqFa(onFullscreen: (String) -> Unit = {}) {
     FaqItem(
         question = "مزایای استفاده از ارزوک چیست؟",
         answer = "ارزوک با استفاده از طراحی هوشمند خود فرآیندهای انتقال پول را بسیار ساده تر و کارآمدتر می کند.\n" +
@@ -386,7 +413,8 @@ private fun StepRowItem(row: StepRow) {
                 " - به محض اینکه خریدار ایترنسفر شما را نقد کرد، ریال مبادله شده در ایران به حساب دریافت کننده شما واریز می شود.\n\n" +
                 "نکته 1: دستورالعمل های موجود در پیام فروش برای ایترنسفر و پاسخ امنیتی را دنبال کنید.\n" +
                 "نکته 2: ارزوک بازاری بسیار رقابتی است. توصیه می کنیم قبل از تصمیم گیری در مورد نرخ ارز مورد نظر خود، صفحه اصلی را برای بهترین نرخ های کنونی بررسی کنید.",
-        videoId = "7_J0CRi731I"
+        videoId = "7_J0CRi731I",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "چگونه با گرفتن Buying موجود از کانادا به ایران پول ارسال کنیم؟",
@@ -397,7 +425,8 @@ private fun StepRowItem(row: StepRow) {
                 " - ایترنسفر برای خریدار ارسال می شود. به محض نقد شدن ایترنسفر توسط خریدار، ریال مبادله شده در ایران به حساب فرد مورد نظر شما واریز می شود.\n\n" +
                 "نکته 1: دستورالعمل های موجود در پیام فروش برای ایترنسفر و پاسخ امنیتی را دنبال کنید.\n" +
                 "نکته 2: ایترنسفر باید قبل از پایان زمان قفل توسط پلتفرم ارزوک دریافت شود. در غیر این صورت، سیستم به طور خودکار Selling شما را حذف می کند.",
-        videoId = "sXJ3UudTHcA"
+        videoId = "sXJ3UudTHcA",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "نرخ ارز چگونه در ارزوک تعیین می شود؟",
@@ -432,7 +461,8 @@ private fun StepRowItem(row: StepRow) {
                 "نکته 1: برای واریز ریالی طبق دستورالعمل Buying عمل کنید.\n" +
                 "نکته 2: ارزوک بازاری بسیار رقابتی است. توصیه می کنیم قبل از تصمیم گیری در مورد نرخ ارز مورد نظر خود، صفحه اصلی را بررسی کنید.\n" +
                 "نکته 3: رمز ایترنسفر (پاسخ امنیتی) پس از قفل شدن توسط فروشنده بر روی Buying شما نمایش داده می شود.",
-        videoId = "sfkoBcsh9As"
+        videoId = "sfkoBcsh9As",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "چگونه از ایران به کانادا با گرفتن Selling موجود پول بفرستیم؟",
@@ -442,7 +472,8 @@ private fun StepRowItem(row: StepRow) {
                 " - پس از تایید پرداخت شما، ایترنسفر برای شما ارسال می شود.\n\n" +
                 "نکته 1: شما باید قبل از انقضای زمان قفل، واریز معادل ریالی خرید را به ارزوک اطلاع دهید. در غیر این صورت، سیستم به طور خودکار خرید شما را حذف می کند.\n" +
                 "نکته 2: رمز ایترنسفر، پاسخ امنیتی، پس از واریز در خرید شما نمایش داده می شود.",
-        videoId = "TsALuxwm3rc"
+        videoId = "TsALuxwm3rc",
+        onFullscreen = onFullscreen
     )
     FaqItem(
         question = "چرا ارزوک هنگام ایجاد یک Buying جدید زمان کمی برای بررسی و قفل کردن یک فروش می دهد؟",
@@ -456,7 +487,7 @@ private fun StepRowItem(row: StepRow) {
 }
 
 @Composable
-private fun FaqItem(question: String, answer: String, videoId: String = "") {
+private fun FaqItem(question: String, answer: String, videoId: String = "", onFullscreen: (String) -> Unit = {}) {
     var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
@@ -464,10 +495,11 @@ private fun FaqItem(question: String, answer: String, videoId: String = "") {
             .padding(vertical = 4.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column {
+        Column(modifier = Modifier.fillMaxWidth().background(Color.White)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color.White)
                     .clickable { expanded = !expanded }
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -492,7 +524,7 @@ private fun FaqItem(question: String, answer: String, videoId: String = "") {
                     modifier = Modifier.padding(12.dp)
                 )
                 if (videoId.isNotEmpty()) {
-                    YoutubePlayer(videoId = videoId)
+                    YoutubePlayer(videoId = videoId, onFullscreen = { onFullscreen(videoId) })
                 }
             }
         }
@@ -599,7 +631,7 @@ private fun ContactUsForm(categories: List<String>, labels: Map<String, String>)
             value = category,
             onValueChange = {},
             readOnly = true,
-            label = { Text(labels["category"] ?: "") },
+            label = { Text(labels["category"] ?: "", fontSize = 10.sp) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor()
         )
@@ -618,24 +650,23 @@ private fun ContactUsForm(categories: List<String>, labels: Map<String, String>)
     ).forEach { (value, onChange, label) ->
         OutlinedTextField(
             value = value, onValueChange = onChange,
-            label = { Text(label) },
+            label = { Text(label, fontSize = 10.sp) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         )
     }
     OutlinedTextField(
         value = body, onValueChange = { body = it },
-        label = { Text(labels["body"] ?: "") },
+        label = { Text(labels["body"] ?: "", fontSize = 10.sp) },
         minLines = 3,
         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
     )
-    Button(
+    ArzookButton(
         onClick = {
             emailError = !isEmailValid
             phoneError = !isPhoneValid
             if (isEmailValid && isPhoneValid) submitted = true
         },
-        enabled = canSubmit,
-        modifier = Modifier.fillMaxWidth()
+        enabled = canSubmit
     ) { Text(labels["submit"] ?: "") }
 }

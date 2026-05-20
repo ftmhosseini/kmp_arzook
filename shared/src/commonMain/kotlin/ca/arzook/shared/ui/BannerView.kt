@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,7 +28,7 @@ fun getBannerContent() = listOf(
 )
 
 @Composable
-fun BannerView(banner: Banner, modifier: Modifier = Modifier) {
+fun promotionView(banner: Banner, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -42,7 +41,7 @@ fun BannerView(banner: Banner, modifier: Modifier = Modifier) {
         Text(
             text = banner.title,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = Yellow40,
             textAlign = TextAlign.Center,
             fontSize = 16.sp,
             maxLines = 3,
@@ -52,7 +51,7 @@ fun BannerView(banner: Banner, modifier: Modifier = Modifier) {
         Text(
             text = banner.secondTitle,
             fontSize = 14.sp,
-            color = Color.Black,
+            color = Color.White,
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -84,7 +83,7 @@ fun PageIndicator(pageCount: Int, currentPage: Int, modifier: Modifier = Modifie
                     .width(size.value)
                     .height(15.dp)
                     .clip(CircleShape)
-                    .background(if (index == currentPage) Color(0xff373737) else Color(0xA8373737))
+                    .background(if (index == currentPage) DotActive else DotInactive)
             )
         }
     }

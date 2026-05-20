@@ -1,8 +1,6 @@
 package ca.arzook.shared.ui
 
-import android.app.Activity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,38 +9,57 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
 import ca.arzook.shared.BuildConfig
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @Composable
 actual fun GoogleSignInButton(onIdToken: (String) -> Unit) {
     val context = LocalContext.current
-    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-        .requestIdToken(BuildConfig.GOOGLE_CLIENT_ID_WEB)
-        .requestEmail()
-        .build()
-    val client = GoogleSignIn.getClient(context, gso)
-
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            try {
-                val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-                    .getResult(ApiException::class.java)
-                account.idToken?.let { onIdToken(it) }
-            } catch (_: ApiException) {}
+    val activityContext = context as? android.app.Activity ?: run {
+        var ctx: android.content.Context = context
+        while (ctx is android.content.ContextWrapper && ctx !is android.app.Activity) {
+            ctx = ctx.baseContext
         }
+        ctx
     }
+    val scope = rememberCoroutineScope()
 
     OutlinedButton(
-        onClick = { launcher.launch(client.signInIntent) },
+        onClick = {
+            scope.launch {
+                try {
+                    val credentialManager = CredentialManager.create(activityContext)
+                    val signInOption = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_CLIENT_ID_WEB).build()
+                    val request = GetCredentialRequest.Builder()
+                        .addCredentialOption(signInOption)
+                        .build()
+                    val result = credentialManager.getCredential(activityContext, request)
+                    val idToken = GoogleIdTokenCredential.createFrom(result.credential.data).idToken
+                    Log.d("GoogleSignIn", "idToken empty=${idToken.isNullOrEmpty()} token=$idToken")
+                    if (idToken.isNullOrEmpty()) {
+                        Log.e("GoogleSignIn", "credential data=${result.credential.data}")
+                        return@launch
+                    }
+                    onIdToken(idToken)
+                } catch (e: GetCredentialException) {
+                    Log.e("GoogleSignIn", "type=${e.type} msg=${e.message}", e)
+                } catch (e: Exception) {
+                    Log.e("GoogleSignIn", "Unexpected: ${e.message}", e)
+                }
+            }
+        },
         modifier = Modifier.fillMaxWidth(),
         border = BorderStroke(1.dp, Color.LightGray)
     ) {

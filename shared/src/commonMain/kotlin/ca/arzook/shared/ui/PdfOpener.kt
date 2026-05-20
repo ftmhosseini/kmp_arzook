@@ -1,3 +1,3 @@
 package ca.arzook.shared.ui
 
-expect fun openPdf(bytes: ByteArray, fileName: String)
+expect fun openPdf(bytes: ByteArray, fileName: String): Boolean

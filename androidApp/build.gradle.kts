@@ -5,10 +5,10 @@ plugins {
 }
 
 android {
-    namespace = "ca.arzook.arzook.android"
+    namespace = "ca.arzook"
     compileSdk = 35
     defaultConfig {
-        applicationId = "ca.arzook.arzook.android"
+        applicationId = "ca.arzook"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

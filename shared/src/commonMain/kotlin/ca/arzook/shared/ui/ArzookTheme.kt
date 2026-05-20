@@ -14,9 +14,9 @@ import androidx.compose.ui.unit.sp
 fun ArzookTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = Color(0xFF6200EE),
-            secondary = Color(0xFF03DAC5),
-            tertiary = Color(0xFF3700B3)
+            primary = Color.Black,
+            secondary = ThemeSecondary,
+            tertiary = ThemeTertiary
         ),
         typography = Typography(
             bodyMedium = TextStyle(

@@ -5,6 +5,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.window.ComposeUIViewController
 import platform.Foundation.NSUserDefaults
 
+// Orientation lock: true = landscape allowed
+var isLandscapeRequested = false
+
 // Shared instance so Swift can call googleSignIn after OAuth redirect
 val sharedAuthViewModel = AuthViewModel(
     saveToken = { token ->

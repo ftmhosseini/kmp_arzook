@@ -58,6 +58,9 @@ class HomeViewModel {
     private val _payees = MutableStateFlow<List<Payee>>(emptyList())
     val payees: StateFlow<List<Payee>> = _payees.asStateFlow()
 
+    private val _rateAlert = MutableStateFlow<RateAlert?>(null)
+    val rateAlert: StateFlow<RateAlert?> = _rateAlert.asStateFlow()
+
     private val _lockedTrades = MutableStateFlow<Map<String, LockedTrade>>(emptyMap())
     val lockedTrades: StateFlow<Map<String, LockedTrade>> = _lockedTrades.asStateFlow()
 
@@ -175,6 +178,21 @@ class HomeViewModel {
                 is Result.Error -> println("[HomeVM] getPayees error: ${r.message}")
             }
         }
+        scope.launch {
+            when (val r = repo.getRateAlerts(token)) {
+                is Result.Success -> _rateAlert.value = r.data
+                is Result.Error -> println("[HomeVM] getRateAlerts error: ${r.message}")
+            }
+        }
+    }
+
+    fun saveRateAlerts(token: String, alert: RateAlert, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+        scope.launch {
+            when (val r = repo.saveRateAlerts(token, alert)) {
+                is Result.Success -> { _rateAlert.value = r.data; onSuccess() }
+                is Result.Error -> onError(r.message ?: "Failed to save alert")
+            }
+        }
     }
 
     fun getTradeById(id: String?): TradeItem? {
@@ -235,6 +253,13 @@ class HomeViewModel {
             repo.updateSellingRate(token, id, rate)
             if (sheba.isNotEmpty() || payeeName.isNotEmpty())
                 repo.updateSellingPayee(token, id, sheba, payeeName)
+            loadUserData(token)
+        }
+    }
+    fun updateBuyingDraft(token: String, id: String, amount: Double, rate: Double) {
+        scope.launch {
+            repo.updateBuyingAmount(token, id, amount)
+            repo.updateBuyingRate(token, id, rate)
             loadUserData(token)
         }
     }
@@ -322,7 +347,7 @@ class HomeViewModel {
             val result = if (isSelling) repo.getServiceRateForSelling(token, amount)
                          else repo.getServiceRateForBuying(token, amount)
             when (result) {
-                is Result.Success -> _serviceRates.value = _serviceRates.value + (tradeId to result.data)
+                is Result.Success -> _serviceRates.value += (tradeId to result.data)
                 is Result.Error -> println("[HomeVM] serviceRate error: ${result.message}")
             }
         }

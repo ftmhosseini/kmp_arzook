@@ -24,7 +24,7 @@ class WebSocketManager(private val baseUrl: String) {
     private var session: DefaultClientWebSocketSession? = null
     private val client = HttpClient {
         install(WebSockets) {
-            pingInterval = 20_000 // 20 seconds
+            val pingInterval = 20_000 // 20 seconds
         }
     }
     

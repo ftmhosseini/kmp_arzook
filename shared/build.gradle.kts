@@ -95,6 +95,8 @@ kotlin {
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.kotlinx.coroutines.core)
                 implementation("io.github.vinceglb:filekit-compose:0.8.8")
+                implementation(libs.coil.compose)
+                implementation(libs.coil.network)
             }
         }
         androidMain.dependencies {
@@ -102,6 +104,9 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.youtube.player)
             implementation(libs.google.signin)
+            implementation(libs.androidx.credentials)
+            implementation(libs.androidx.credentials.play.services.auth)
+            implementation(libs.googleid)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
@@ -109,6 +114,7 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 
@@ -127,4 +133,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+}
+dependencies {
 }

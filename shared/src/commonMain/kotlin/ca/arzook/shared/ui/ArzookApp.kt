@@ -1,19 +1,50 @@
 package ca.arzook.shared.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.CurrencyExchange
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import arzook.shared.generated.resources.Res
+import arzook.shared.generated.resources.ic_nav_logo
+import arzook.shared.generated.resources.ic_nav_logo_white
+import org.jetbrains.compose.resources.painterResource
 
 sealed class Screen {
     data object Splash : Screen()
     data object Home : Screen()
     data object Login : Screen()
     data object SignUp : Screen()
+    data object Offering : Screen()
+    data object Ordering : Screen()
     data object Buying : Screen()
     data object Selling : Screen()
     data object EWallet : Screen()
@@ -23,19 +54,45 @@ sealed class Screen {
     data object AddSelling : Screen()
     data object Profile : Screen()
     data object RateAlert : Screen()
+    data object AdminWallet : Screen()
+    data object ConfirmDeposit : Screen()
+    data object Account : Screen()
+    data object Settings : Screen()
+    data object SettingsPage : Screen()
+    data object Menu : Screen()
     data class Content(val title: String) : Screen()
+    data object LearningVideos : Screen()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArzookApp(authViewModel: AuthViewModel) {
+    var isFabMenuOpen by remember { mutableStateOf(false) }
+    val fabExpanded = remember { mutableStateOf(false) }
     val homeViewModel = remember { HomeViewModel() }
     val token by authViewModel.token.collectAsState()
-    var screen by remember { mutableStateOf<Screen>(Screen.Splash) }
+    val buyingDrafts by homeViewModel.buyingDrafts.collectAsState()
+    val buyingTrades by homeViewModel.buyingTrades.collectAsState()
+
+    // Currency state: drives Offering screen behaviour
+    var fromCurrency by remember { mutableStateOf("CAD") }
+    var toCurrency by remember { mutableStateOf("IRR") }
+
+    // Back stack — Home is the root, Splash is the entry point
+    val backStack = remember { mutableStateListOf<Screen>(Screen.Splash) }
+    val screen by remember { derivedStateOf { backStack.last() } }
+
+    fun navigate(s: Screen) {
+        fabExpanded.value = false
+        backStack.add(s)
+    }
+
+    fun goBack() {
+        if (backStack.size > 1) backStack.removeLast()
+    }
+
     val showChrome = screen !is Screen.Splash
 
-    val menuItems = listOf("How It Works", "About Us", "FAQ", "Contact Us", "Privacy Policy", "Terms and Conditions")
-    var menuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(token) {
         val t = token
@@ -49,157 +106,276 @@ fun ArzookApp(authViewModel: AuthViewModel) {
     // Re-load profile when navigating to Profile screen (handles Google login case where token was already set)
     LaunchedEffect(screen) {
         val t = token
-        if (!t.isNullOrEmpty()) {
-            when (screen) {
-                is Screen.Profile -> authViewModel.loadUserDetails(t)
-                is Screen.MyBuying, is Screen.MySelling -> homeViewModel.loadUserData(t)
-                else -> {}
-            }
+        when (screen) {
+            is Screen.Offering -> homeViewModel.refreshTrades()
+            is Screen.Ordering -> if (!t.isNullOrEmpty()) homeViewModel.loadUserData(t)
+            is Screen.Profile -> if (!t.isNullOrEmpty()) authViewModel.loadUserDetails(t)
+            is Screen.MyBuying, is Screen.MySelling -> if (!t.isNullOrEmpty()) homeViewModel.loadUserData(
+                t
+            )
+
+            else -> {}
         }
     }
 
     ArzookTheme {
         Scaffold(
-            floatingActionButton = {
-                if (showChrome) {
-                    FabUI(
-                        token = token,
-                        onLoginClick = { screen = Screen.Login },
-                        onLogout = { authViewModel.logout() },
-                        onMyBuying = { screen = Screen.MyBuying },
-                        onMySelling = { screen = Screen.MySelling },
-                        onProfile = { screen = Screen.Profile },
-                        onWallet = { screen = Screen.EWallet },
-                        onRateAlert = { screen = Screen.RateAlert }
-                    )
-                }
-            },
-            floatingActionButtonPosition = FabPosition.Center,
-            topBar = {
-                if (showChrome) {
-                    val pageTitle = when (val s = screen) {
-                        is Screen.Buying -> "Buying"
-                        is Screen.Selling -> "Selling"
-                        is Screen.Content -> s.title
-                        is Screen.Login -> "Sign In"
-                        is Screen.SignUp -> "Sign Up"
-                        else -> "Arzook"
-                    }
-                    TopAppBar(
-                        navigationIcon = {
-                            Box {
-                                IconButton(onClick = { menuExpanded = true }) {
-                                    Icon(Icons.Filled.Menu, contentDescription = "Menu")
-                                }
-                                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                                    menuItems.forEach { item ->
-                                        DropdownMenuItem(
-                                            text = { Text(item) },
-                                            onClick = { menuExpanded = false; screen = Screen.Content(item) }
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        title = { Text(pageTitle, style = MaterialTheme.typography.titleLarge) },
-                        actions = {
-                            TopBarLogo { screen = Screen.Home }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Cream40)
-                    )
-                }
-            },
+            containerColor = Cream40,
             bottomBar = {
                 if (showChrome) {
-                    NavigationBar(containerColor = Cream40) {
+                    val logo = when {
+                        isFabMenuOpen -> Res.drawable.ic_nav_logo   // disabled state
+                        screen is Screen.Menu -> Res.drawable.ic_nav_logo_white // selected state
+                        else -> Res.drawable.ic_nav_logo           // normal state
+                    }
+                    val alpha = if (isFabMenuOpen) 0.4f else 1f
+                    NavigationBar(containerColor = Color.White.copy(alpha = alpha)) {
                         NavigationBarItem(
-                            selected = screen is Screen.Buying,
-                            onClick = { screen = Screen.Buying },
-                            icon = { Text("💰") },
-                            label = { Text("Buying") },
-                            colors = NavigationBarItemDefaults.colors(indicatorColor = Yellow40, selectedIconColor = Color.Black, unselectedIconColor = Color.DarkGray)
+                            selected = screen is Screen.Account,
+                            onClick = {
+                                if (!isFabMenuOpen) {
+                                    backStack.clear(); backStack.add(Screen.Account)
+                                }
+                            },
+                            enabled = !isFabMenuOpen,
+                            icon = { Icon(Icons.Default.AccountBox, contentDescription = null) },
+                            label = { Text("Account") },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = ChosenMenu,
+                                selectedIconColor = Color.White,
+                                unselectedIconColor = Color.DarkGray
+                            )
                         )
                         NavigationBarItem(
-                            selected = screen is Screen.Selling,
-                            onClick = { screen = Screen.Selling },
-                            icon = { Text("💱") },
-                            label = { Text("Selling") },
-                            colors = NavigationBarItemDefaults.colors(indicatorColor = Yellow40, selectedIconColor = Color.Black, unselectedIconColor = Color.DarkGray)
+                            selected = screen is Screen.Offering,
+                            onClick = {
+                                if (!isFabMenuOpen) {
+                                    backStack.clear(); backStack.add(Screen.Offering)
+                                }
+                            },
+                            enabled = !isFabMenuOpen,
+//                            icon = { Text("💱", color = iconColor) },
+                            icon = {
+                                Icon(
+                                    Icons.Default.CurrencyExchange,
+                                    contentDescription = null
+                                )
+                            },
+                            label = { Text("Market") },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = ChosenMenu,
+                                selectedIconColor = Color.White,
+                                unselectedIconColor = Color.DarkGray
+                            )
+                        )
+                        NavigationBarItem(
+                            selected = screen is Screen.Ordering,
+                            onClick = {
+                                if (!isFabMenuOpen) {
+                                    backStack.clear(); backStack.add(Screen.Ordering)
+                                }
+                            },
+                            enabled = !isFabMenuOpen,
+                            icon = {
+                                Icon(Icons.Default.Receipt, contentDescription = null)
+
+                            },
+                            label = { Text("My Trades") },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = ChosenMenu,
+                                selectedIconColor = Color.White,
+                                unselectedIconColor = Color.DarkGray
+                            )
+                        )
+                        NavigationBarItem(
+                            selected = screen is Screen.Menu,
+                            onClick = {
+                                if (!isFabMenuOpen) {
+                                    backStack.clear(); backStack.add(Screen.Menu)
+                                }
+                            },
+                            enabled = !isFabMenuOpen,
+                            icon = {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        // Define the exact width and custom height you want for your indicator
+                                        .then(
+                                            if (screen is Screen.Menu) {
+                                                Modifier
+                                                    .size(width = 30.dp, height = 26.dp) // Default Material 3 height is usually ~32dp
+                                                    .background(color = ChosenMenu, shape = RoundedCornerShape(12.dp))
+                                            } else Modifier.size(26.dp)
+                                        )
+                                ) {
+                                    Image(
+                                        painter = painterResource(logo),
+                                        contentDescription = "Arzook",
+                                    )
+                                }
+                            },
+                            label = { Text("Arzook",
+                                modifier = Modifier.offset(y = (-2).dp)
+                            ) },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = ChosenMenu,
+                                selectedIconColor = Color.White,
+                                unselectedIconColor = Color.DarkGray
+                            )
                         )
                     }
                 }
             }
         ) { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding)) {
+            Box(modifier = Modifier
+                .padding(innerPadding)
+                .background(Cream40)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { if (fabExpanded.value) fabExpanded.value = false }
+            ) {
                 when (val s = screen) {
-                    is Screen.Splash -> SplashScreen { screen = Screen.Home }
-                    is Screen.Home -> HomeScreen(
-                        homeViewModel = homeViewModel
+                    is Screen.Splash -> SplashScreen { backStack.clear(); backStack.add(if (token.isNullOrEmpty()) Screen.Login else Screen.Offering) }
+                    is Screen.Home -> HomeScreen(homeViewModel = homeViewModel)
+                    is Screen.Login -> LoginScreen(
+                        viewModel = authViewModel,
+                        onLoginSuccess = { backStack.clear(); backStack.add(Screen.Offering) },
+                        onSignUp = { navigate(Screen.SignUp) })
+
+                    is Screen.SignUp -> SignUpScreen(
+                        viewModel = authViewModel,
+                        onSuccess = { backStack.clear(); backStack.add(Screen.Home) },
+                        onSignIn = { goBack() })
+
+                    is Screen.Offering -> TradesScreen(
+//                        title = "Offering",
+                        initialFrom = fromCurrency,
+                        initialTo = toCurrency,
+                        onCurrencyChange = { f, t -> fromCurrency = f; toCurrency = t },
+                        token = token,
+                        onLoginRequired = { navigate(Screen.Login) },
+//                        onBuy = { navigate(Screen.MyBuying) },
+//                        onSell = { navigate(Screen.MySelling) },
+                        onBuy = { navigate(Screen.Ordering) },
+                        onSell = { navigate(Screen.Ordering) },
+                        homeViewModel = homeViewModel,
+                        user = authViewModel.userDetails.collectAsState().value
                     )
-                    is Screen.Login -> LoginScreen(viewModel = authViewModel, onLoginSuccess = { screen = Screen.Home }, onSignUp = { screen = Screen.SignUp })
-                    is Screen.SignUp -> SignUpScreen(viewModel = authViewModel, onSuccess = { screen = Screen.Home }, onSignIn = { screen = Screen.Login })
+
                     is Screen.Buying -> TradesScreen(
-                        title = "Buying Trades",
+//                        title = "Buying Trades",
                         isSelling = false,
                         token = token,
-                        onLoginRequired = { screen = Screen.Login },
-                        onBuy = { screen = Screen.MyBuying },
-                        onSell = { screen = Screen.MySelling },
+                        onLoginRequired = { navigate(Screen.Login) },
+                        onBuy = { navigate(Screen.MyBuying) },
+                        onSell = { navigate(Screen.MySelling) },
                         homeViewModel = homeViewModel,
                         user = authViewModel.userDetails.collectAsState().value
                     )
+
                     is Screen.Selling -> TradesScreen(
-                        title = "Selling Trades",
+//                        title = "Selling Trades",
                         isSelling = true,
                         token = token,
-                        onLoginRequired = { screen = Screen.Login },
-                        onBuy = { screen = Screen.MyBuying },
-                        onSell = { screen = Screen.MySelling },
+                        onLoginRequired = { navigate(Screen.Login) },
+                        onBuy = { navigate(Screen.MyBuying) },
+                        onSell = { navigate(Screen.MySelling) },
                         homeViewModel = homeViewModel,
                         user = authViewModel.userDetails.collectAsState().value
                     )
-                    is Screen.Content -> ContentScreen(
-                        title = s.title,
-                        onBack = { screen = Screen.Home }
-                    )
-                    is Screen.EWallet -> EWalletScreen(
-                        deposits = homeViewModel.deposits.collectAsState().value
-                    )
-                    is Screen.MyBuying -> MyBuyingScreen(
-                        drafts = homeViewModel.buyingDrafts.collectAsState().value,
-                        completedTrades = homeViewModel.buyingTrades.collectAsState().value,
-                        onAddBuying = { screen = Screen.AddBuying },
+
+                    is Screen.Ordering -> if (token.isNullOrEmpty()) navigate(Screen.Login) else OrderingScreen(
                         token = token ?: "",
-                        homeViewModel = homeViewModel
+                        homeViewModel = homeViewModel,
+                        fromCurrency = fromCurrency,
+                        toCurrency = toCurrency,
+                        onSaveSettings = { f, t -> fromCurrency = f; toCurrency = t },
+                        onAddBuying = { navigate(Screen.AddBuying) },
+                        onAddSelling = { navigate(Screen.AddSelling) }
                     )
+
+                    is Screen.Content -> if (s.title == "Learning Videos") HomeScreen(homeViewModel = homeViewModel) else ContentScreen(
+                        title = s.title,
+                        onBack = { goBack() })
+
+                    is Screen.EWallet -> EWalletScreen(deposits = homeViewModel.deposits.collectAsState().value)
+                    is Screen.MyBuying -> MyBuyingScreen(
+                        drafts = buyingDrafts, completedTrades = buyingTrades,
+                        onAddBuying = { navigate(Screen.AddBuying) },
+                        token = token ?: "", homeViewModel = homeViewModel
+                    )
+
                     is Screen.MySelling -> MySellingScreen(
                         drafts = homeViewModel.sellingDrafts.collectAsState().value,
                         completedTrades = homeViewModel.sellingTrades.collectAsState().value,
                         payees = homeViewModel.payees.collectAsState().value,
-                        onAddSelling = { screen = Screen.AddSelling },
-                        token = token ?: "",
-                        homeViewModel = homeViewModel
+                        onAddSelling = { navigate(Screen.AddSelling) },
+                        token = token ?: "", homeViewModel = homeViewModel
                     )
+
                     is Screen.AddBuying -> AddSellingBuyingScreen(
-                        token = token ?: "",
-                        isSelling = false,
-                        onBack = { screen = Screen.MyBuying },
-                        onSuccess = { homeViewModel.loadUserData(token ?: ""); screen = Screen.MyBuying },
+                        token = token ?: "", isSelling = false,
+                        fromCurrency = fromCurrency, toCurrency = toCurrency,
+                        onBack = { goBack() },
+                        onSuccess = { homeViewModel.loadUserData(token ?: ""); goBack() },
                         homeViewModel = homeViewModel
                     )
+
                     is Screen.AddSelling -> AddSellingBuyingScreen(
-                        token = token ?: "",
-                        isSelling = true,
-                        onBack = { screen = Screen.MySelling },
-                        onSuccess = { homeViewModel.loadUserData(token ?: ""); screen = Screen.MySelling },
+                        token = token ?: "", isSelling = true,
+                        fromCurrency = fromCurrency, toCurrency = toCurrency,
+                        onBack = { goBack() },
+                        onSuccess = { homeViewModel.loadUserData(token ?: ""); goBack() },
                         homeViewModel = homeViewModel
                     )
-                    is Screen.Profile -> ProfileScreen(
+
+                    is Screen.Profile -> if (token.isNullOrEmpty()) navigate(Screen.Login) else ProfileScreen(
                         user = authViewModel.userDetails.collectAsState().value,
                         isLoggedIn = !token.isNullOrEmpty(),
-                        authViewModel = authViewModel
+                        authViewModel = authViewModel,
+                        token = token ?: ""
                     )
-                    is Screen.RateAlert -> RateAlertScreen(onBack = { screen = Screen.Home })
+
+                    is Screen.RateAlert -> if (token.isNullOrEmpty()) navigate(Screen.Login) else RateAlertScreen(
+                        onBack = { goBack() },
+                        token = token ?: "",
+                        homeViewModel = homeViewModel
+                    )
+
+                    is Screen.AdminWallet -> AdminWalletScreen(token = token ?: "")
+                    is Screen.ConfirmDeposit -> ConfirmDepositScreen(token = token ?: "")
+                    is Screen.Account -> AccountScreen(
+                        user = authViewModel.userDetails.collectAsState().value,
+                        isLoggedIn = !token.isNullOrEmpty(),
+                        isAdmin = authViewModel.userDetails.collectAsState().value?.admin == true,
+                        onLogin = { navigate(Screen.Login) },
+                        onLogout = { authViewModel.logout() },
+                        onProfile = { navigate(Screen.Profile) },
+                        onWallet = { navigate(Screen.EWallet) },
+                        onMyBuying = { navigate(Screen.MyBuying) },
+                        onMySelling = { navigate(Screen.MySelling) },
+                        onRateAlert = { navigate(Screen.RateAlert) },
+                        onAdminWallet = { navigate(Screen.AdminWallet) },
+                        onConfirmDeposit = { navigate(Screen.ConfirmDeposit) },
+                        onOrdering = { navigate(Screen.Ordering) },
+                        fromCurrency = fromCurrency,
+                        toCurrency = toCurrency,
+                        onSaveSettings = { f, t -> fromCurrency = f; toCurrency = t }
+                    )
+
+                    is Screen.SettingsPage -> SettingsScreen(
+                        fromCurrency = fromCurrency,
+                        toCurrency = toCurrency,
+                        onSave = { f, t -> fromCurrency = f; toCurrency = t })
+
+                    is Screen.Settings -> SettingsScreen(
+                        fromCurrency = fromCurrency,
+                        toCurrency = toCurrency,
+                        onSave = { f, t -> fromCurrency = f; toCurrency = t })
+
+                    is Screen.Menu -> MenuScreen(onNavigate = { navigate(Screen.Content(it)) })
+                    is Screen.LearningVideos -> HomeScreen(homeViewModel = homeViewModel)
                 }
             }
         }
