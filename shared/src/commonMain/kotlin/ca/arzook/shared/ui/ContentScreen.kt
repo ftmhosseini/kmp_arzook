@@ -52,6 +52,8 @@ fun ContentScreen(title: String, onBack: () -> Unit) {
     }
 
     val direction = if (isFarsi) LayoutDirection.Rtl else LayoutDirection.Ltr
+
+    Spacer(Modifier.height(12.dp))
     CompositionLocalProvider(LocalLayoutDirection provides direction) {
         Column(
             modifier = Modifier
@@ -59,9 +61,34 @@ fun ContentScreen(title: String, onBack: () -> Unit) {
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            TextButton(onClick = { isFarsi = !isFarsi }) {
-                Text(if (isFarsi) "EN" else "FA", fontWeight = FontWeight.Bold)
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    val selectedBg = Green
+                    val unselectedBg = Brown
+                    TextButton(
+                        onClick = { isFarsi = false },
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = if (!isFarsi) selectedBg else unselectedBg,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) { Text("English", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                    TextButton(
+                        onClick = { isFarsi = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = if (isFarsi) selectedBg else unselectedBg,
+                            contentColor = Color.White //if (isFarsi) Color.White else Color.Black
+                        ),
+                        shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) { Text("فارسی", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                }
             }
+            Spacer(Modifier.height(12.dp))
             when (title) {
                 "About Us" -> if (isFarsi) AboutUsFa() else AboutUsContent()
                 "How It Works" -> if (isFarsi) HowItWorksFa() else HowItWorksContent()

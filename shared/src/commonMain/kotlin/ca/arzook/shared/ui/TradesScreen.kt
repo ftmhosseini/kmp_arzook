@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,9 +14,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.delay
+import kotlin.math.absoluteValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -181,6 +188,30 @@ fun TradesScreen(
                 }
             }
 
+            // Deposited-only carousel
+            val depositedTrades = tradeList.filter { it.deposited == true && it.status == null }
+            DepositedCarousel(
+                trades = depositedTrades,
+//                onLock = { trade ->
+//                    if (token.isNullOrEmpty()) onLoginRequired()
+//                    else if (trade.id != null) homeViewModel.lockTrade(token, trade.id) {if (isSelling == true) onSell() else onBuy()}
+//                },
+                onConfirm = { trade, onSuccess ->
+                    if (token.isNullOrEmpty()) onLoginRequired()
+                    else if (trade.id != null) homeViewModel.confirmTrade(
+                        token, trade.id,
+                        isSelling = trade.selling,
+                        amount = trade.amount ?: 0.0,
+                        onSuccess = {
+                            onSuccess()
+                            if (trade.currency == "USD") homeViewModel.refreshUsdTrades()
+                            else homeViewModel.refreshCadTrades()
+                            if (isSelling == true) onSell() else onBuy()
+                        }
+                    )
+                }
+            )
+
             if (tradeList.isEmpty()) {
                 Row(
                     modifier = Modifier.padding(24.dp).fillMaxWidth()
@@ -246,12 +277,76 @@ fun TradesScreen(
                             buyingDraft = buyingDrafts.find { it.id == trade.id },
                             sellingDraft = sellingDrafts.find { it.id == trade.id },
                             walletBalance = walletStatus?.balance,
-//                            lockedTrade = lockedTrades[trade.id],
                             serviceRate = serviceRates[trade.id],
-//                            snackbarHostState = snackbarHostState,
-//                            coroutineScope = scope
                         )
                         Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DepositedCarousel(
+    trades: List<TradeItem>,
+//    onAction: () -> Unit,
+//    onLock: (TradeItem) -> Unit,
+    onConfirm: (TradeItem, onSuccess: () -> Unit) -> Unit
+) {
+    if (trades.isEmpty()) return
+    val pagerState = rememberPagerState(pageCount = { trades.size })
+
+    // Auto-scroll every 3 seconds (full cycle ~1 min for 20 items)
+    LaunchedEffect(pagerState, trades.size) {
+        while (true) {
+            delay(3000L)
+            val next = (pagerState.currentPage + 1) % trades.size
+            pagerState.animateScrollToPage(next)
+        }
+    }
+
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.fillMaxWidth().height(160.dp).padding(vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 48.dp),
+        pageSpacing = 12.dp
+    ) { page ->
+        val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+        val scale = 1f - (pageOffset * 0.15f).coerceAtMost(0.15f)
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+            colors = CardDefaults.cardColors(containerColor = Cream40),
+            elevation = CardDefaults.cardElevation(4.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            val trade = trades[page]
+            Column(
+                modifier = Modifier.padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Amount: ${formatIrr(trade.amount ?: 0.0)} ${trade.currency ?: ""}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Rate: ${trade.askingRate ?: trade.exchangeRate ?: "-"}", fontSize = 12.sp)
+                Text("Total: ${trade.total ?: "${formatIrr((trade.amount ?: 0.0) * (trade.exchangeRate ?: 0.0))} IRR"}", fontSize = 12.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Button(
+                        onClick = { },//onConfirm(trade) {} 
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Green)
+                    ) {
+                        Text(if (!trade.selling) "Sell" else if (trade.urgent == true)
+                            "Buy 🔥" else "Buy", color = Color.White, fontSize = 11.sp)
                     }
                 }
             }
@@ -504,7 +599,7 @@ private fun TradeCard(
                                     "IRR ${formatIrr(trade.exchangeRate ?: 0.0)}",
                                     fontSize = 12.sp
                                 )
-                                if (trade.complianceFee != null && trade.complianceFee.toDouble() > 0.0) {
+                                if (trade.complianceFee > 0.0) {
                                     var showComplianceInfo by remember { mutableStateOf(false) }
                                     if (showComplianceInfo) {
                                         AlertDialog(

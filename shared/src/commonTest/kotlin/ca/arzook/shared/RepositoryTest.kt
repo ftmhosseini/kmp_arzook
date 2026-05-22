@@ -65,9 +65,9 @@ class FakeArzookRepository : ArzookRepository {
     override suspend fun validatePromoCode(token: String, promoCode: String) = Result.Success(PromoCodeResponse(valid = true))
     override suspend fun getAdminBuyingDraftById(token: String, id: String) = Result.Success(TradeItem())
     override suspend fun adminForwardETransfers(token: String, buyingId: String) = Result.Success(Unit)
-    override suspend fun adminDeactivateBuying(token: String, id: String) = Result.Success(Unit)
-    override suspend fun adminTransferToWallet(token: String, id: String) = Result.Success(Unit)
-    override suspend fun adminComplete(token: String, id: String) = Result.Success(Unit)
+    override suspend fun adminDeactivateBuying(token: String, buyingId: String) = Result.Success(Unit)
+    override suspend fun adminTransferToWallet(token: String, sellingId: String) = Result.Success(Unit)
+    override suspend fun adminComplete(token: String, sellingId: String) = Result.Success(Unit)
     override suspend fun getAdminWalletItemTypes(token: String) = Result.Success(emptyList<DigitalWalletItemType>())
     override suspend fun getAdminWalletItems(token: String, fromDate: String?, toDate: String?, customer: String?, type: String?, bank: String?) = Result.Success(emptyList<DigitalWalletItem>())
     override suspend fun getAdminBuyingDrafts(token: String, deposited: Boolean) = Result.Success(emptyList<TradeItem>())
@@ -87,7 +87,7 @@ class RepositoryTest {
     @Test
     fun login_success() = runTest {
         val result = repo.login(LoginRequest("test@test.com", "pass"))
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<LoginResponse>>(result)
         assertEquals("token123", result.data.accessToken)
         assertEquals("Bearer token123", result.data.resolvedToken())
     }
@@ -96,14 +96,14 @@ class RepositoryTest {
     fun login_failure() = runTest {
         repo.loginResult = Result.Error("Invalid credentials")
         val result = repo.login(LoginRequest("bad@test.com", "wrong"))
-        assertTrue(result is Result.Error)
+        assertIs<Result.Error<LoginResponse>>(result)
         assertEquals("Invalid credentials", result.message)
     }
 
     @Test
     fun getUserDetails_success() = runTest {
         val result = repo.getUserDetails("Bearer token")
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<AuthenticatedData>>(result)
         assertEquals("u1", result.data.id)
         assertEquals("test@test.com", result.data.email)
     }
@@ -111,7 +111,7 @@ class RepositoryTest {
     @Test
     fun getTradesList_empty() = runTest {
         val result = repo.getTradesList()
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<List<TradeItem>>>(result)
         assertTrue(result.data.isEmpty())
     }
 
@@ -122,7 +122,7 @@ class RepositoryTest {
             TradeItem(id = "t2", amount = 1000.0, selling = false)
         ))
         val result = repo.getTradesList()
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<List<TradeItem>>>(result)
         assertEquals(2, result.data.size)
         assertTrue(result.data[0].selling)
         assertFalse(result.data[1].selling)
@@ -131,28 +131,28 @@ class RepositoryTest {
     @Test
     fun getCurrentRate() = runTest {
         val result = repo.getCurrentRate("token")
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<CurrentRate>>(result)
         assertEquals(1075000.0, result.data.currentMidMarketRate)
     }
 
     @Test
     fun getWalletStatus() = runTest {
         val result = repo.getWalletStatus("token")
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<WalletStatus>>(result)
         assertEquals(50000L, result.data.balance)
     }
 
     @Test
     fun lockTrade() = runTest {
         val result = repo.lockTrade("token", "trade1")
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<LockedTrade>>(result)
         assertEquals("lock1", result.data.id)
     }
 
     @Test
     fun getServiceRate() = runTest {
         val result = repo.getServiceRateForBuying("token", 500.0)
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<Double>>(result)
         assertEquals(15000.0, result.data)
     }
 
@@ -160,7 +160,7 @@ class RepositoryTest {
     fun addPayee() = runTest {
         val payee = Payee(name = "Ali", sheba = "IR123")
         val result = repo.addPayee("token", payee)
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<Payee>>(result)
         assertEquals("Ali", result.data.name)
     }
 
@@ -168,14 +168,14 @@ class RepositoryTest {
     fun createSellingDraft() = runTest {
         val draft = TradeItem(amount = 1000.0, askingRate = 1100000.0, selling = true)
         val result = repo.createSellingDraft("token", draft)
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<TradeItem>>(result)
         assertEquals(1000.0, result.data.amount)
     }
 
     @Test
     fun validatePromoCode() = runTest {
         val result = repo.validatePromoCode("token", "SAVE10")
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<PromoCodeResponse>>(result)
         assertTrue(result.data.valid!!)
     }
 
@@ -183,7 +183,7 @@ class RepositoryTest {
     fun register() = runTest {
         val user = User(firstName = "John", lastName = "Doe", email = "j@d.com", password = "pass123")
         val result = repo.register(user)
-        assertTrue(result is Result.Success)
+        assertIs<Result.Success<User>>(result)
         assertEquals("John", result.data.firstName)
     }
 }

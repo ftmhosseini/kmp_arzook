@@ -158,10 +158,10 @@ class AuthModelTest {
 
     @Test
     fun loginState_types() {
-        assertTrue(LoginState.Idle is LoginState)
-        assertTrue(LoginState.Loading is LoginState)
-        assertTrue(LoginState.Success is LoginState)
-        assertTrue(LoginState.Error("err") is LoginState)
+        assertIs<LoginState>(LoginState.Idle)
+        assertIs<LoginState>(LoginState.Loading)
+        assertIs<LoginState>(LoginState.Success)
+        assertIs<LoginState>(LoginState.Error("err"))
         assertEquals("err", (LoginState.Error("err")).message)
     }
 

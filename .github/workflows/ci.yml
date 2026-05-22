@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  build:
+  test:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,17 +22,21 @@ jobs:
       - name: Generate local.properties
         run: |
           cat <<EOF > local.properties
-          GOOGLE_CLIENT_ID_ANDROID=${{ secrets.GOOGLE_CLIENT_ID_ANDROID }}
           GOOGLE_CLIENT_ID_IOS=${{ secrets.GOOGLE_CLIENT_ID_IOS }}
           GOOGLE_CLIENT_ID_WEB=${{ secrets.GOOGLE_CLIENT_ID_WEB }}
           GOOGLE_CLIENT_SECRET_WEB=${{ secrets.GOOGLE_CLIENT_SECRET_WEB }}
           RECAPTCHA_SITE_KEY=${{ secrets.RECAPTCHA_SITE_KEY }}
-          DEV_EMAIL=${{ secrets.DEV_EMAIL }}
-          DEV_PASSWORD=${{ secrets.DEV_PASSWORD }}
           EOF
 
-      - name: Build shared module
-        run: ./gradlew :shared:build
+      - name: Run shared tests
+        run: ./gradlew :shared:testDebugUnitTest
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: shared/build/reports/tests/
 
       - name: Build Android app
         run: ./gradlew :androidApp:assembleDebug
