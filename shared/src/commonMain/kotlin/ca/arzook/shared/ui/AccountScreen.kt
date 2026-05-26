@@ -34,6 +34,7 @@ fun AccountScreen(
     onRateAlert: () -> Unit,
     onAdminWallet: () -> Unit,
     onConfirmDeposit: () -> Unit,
+    onAdminCompletedTrades: () -> Unit = {},
     onOrdering: () -> Unit = {},
     fromCurrency: String = ALL_CURRENCIES[0],
     toCurrency: String = ALL_CURRENCIES[1],
@@ -84,20 +85,22 @@ fun AccountScreen(
             }
         } else {
             // Admin items
-            if (isAdmin) {
-                item {
-                    AccountMenuItem(Icons.Filled.AccountBalanceWallet, "Admin Wallet", onClick = onAdminWallet)
-                    HorizontalDivider()
-                    AccountMenuItem(Icons.Filled.ManageAccounts, "Confirm Deposit", onClick = onConfirmDeposit)
-                    HorizontalDivider()
-                }
-            }
+//            if (isAdmin) {
+//                item {
+//                    AccountMenuItem(Icons.Filled.AccountBalanceWallet, "Admin Wallet", onClick = onAdminWallet)
+//                    HorizontalDivider()
+//                    AccountMenuItem(Icons.Filled.ManageAccounts, "Confirm Deposit", onClick = onConfirmDeposit)
+//                    HorizontalDivider()
+//                    AccountMenuItem(Icons.Filled.Receipt, "Completed Trades", onClick = onAdminCompletedTrades)
+//                    HorizontalDivider()
+//                }
+//            }
 
             item {
                 AccountMenuItem(Icons.Filled.AccountBalanceWallet, "My Wallet", onClick = onWallet)
                 HorizontalDivider()
-                AccountMenuItem(Icons.Filled.Receipt, "My Trades", onClick = onOrdering)
-                HorizontalDivider()
+//                AccountMenuItem(Icons.Filled.Receipt, "My Trades", onClick = onOrdering)
+//                HorizontalDivider()
 //                AccountMenuItem(Icons.Filled.ShoppingCart, "My Buying", onClick = onMyBuying)
 //                HorizontalDivider()
 //                AccountMenuItem(Icons.Filled.Sell, "My Selling", onClick = onMySelling)

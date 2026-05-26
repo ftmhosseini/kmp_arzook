@@ -51,6 +51,12 @@ interface ArzookRepository {
     suspend fun deleteSellingDraft(token: String, id: String): Result<Unit>
     suspend fun updateSellingAmount(token: String, id: String, amount: Double): Result<Unit>
     suspend fun updateSellingRate(token: String, id: String, rate: Double): Result<Unit>
+    suspend fun updateSellingAdvertised(token: String, draft: TradeItem): Result<Unit>
+//    suspend fun updateSellingAdvertised(token: String, id: String, advertised: Boolean): Result<Unit>
+    suspend fun updateSellingUrgent(token: String, id: String, purposeOfTransaction: String, sourceOfFund: String, urgent: Boolean): Result<Unit>
+    suspend fun updateBuyingAdvertised(token: String, draft: TradeItem): Result<Unit>
+//    suspend fun updateBuyingAdvertised(token: String, id: String, advertised: Boolean): Result<Unit>
+    suspend fun updateBuyingSmartMatching(token: String, id: String, purposeOfTransaction: String, sourceOfFund: String, smartMatchingEnabled: Boolean): Result<Unit>
     suspend fun updateSellingPayee(token: String, id: String, sheba: String, payeeName: String): Result<Unit>
     suspend fun createSellingDraft(token: String, request: ca.arzook.shared.model.TradeItem): Result<TradeItem>
     suspend fun createSellingDraftWithItem(token: String, draft: ca.arzook.shared.model.TradeItem): Result<Unit>
@@ -85,4 +91,6 @@ interface ArzookRepository {
     suspend fun adminGetUserWallet(token: String, userId: String): Result<WalletStatus>
     suspend fun adminForwardETransfers(token: String, buyingId: String): Result<Unit>
     suspend fun adminDeactivateBuying(token: String, buyingId: String): Result<Unit>
+    suspend fun getAdminBuyingTrades(token: String): Result<List<TradeItem>>
+    suspend fun getAdminSellingTrades(token: String): Result<List<TradeItem>>
 }

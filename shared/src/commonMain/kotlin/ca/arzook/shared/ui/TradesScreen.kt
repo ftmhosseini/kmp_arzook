@@ -51,6 +51,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -124,25 +125,25 @@ fun TradesScreen(
 
     val scrollState = rememberScrollState()
 
-    val pair = setOf(fromCurrency, toCurrency)
-    val tradeList: List<TradeItem> = when {
-        // Buying/Selling screens: isSelling provided, use CAD tab (tabIndex) filter
-        isSelling != null -> {
-            val rawList = if (tabIndex == 0) cadTrades else usdTrades
-            rawList.filter { it.selling == isSelling && (!depositedOnly || (it.deposited == true && it.status == null)) }
+    val tradeList: List<TradeItem> by remember(cadTrades, usdTrades, isSelling, tabIndex, fromCurrency, toCurrency, depositedOnly) {
+        derivedStateOf {
+            val pair = setOf(fromCurrency, toCurrency)
+            when {
+                isSelling != null -> {
+                    val rawList = if (tabIndex == 0) cadTrades else usdTrades
+                    rawList.filter { it.selling == isSelling && (!depositedOnly || (it.deposited == true && it.status == null)) }
+                }
+                pair == setOf("IRR", "CAD") -> {
+                    val sellerHasCAD = toCurrency == "IRR"
+                    cadTrades.filter { it.selling == !sellerHasCAD && (!depositedOnly || (it.deposited == true && it.status == null)) }
+                }
+                pair == setOf("IRR", "USD") -> {
+                    val sellerHasUSD = toCurrency == "IRR"
+                    usdTrades.filter { it.selling == !sellerHasUSD && (!depositedOnly || (it.deposited == true && it.status == null)) }
+                }
+                else -> emptyList()
+            }
         }
-        // Offering screen: currency-pair driven
-        pair == setOf("IRR", "CAD") -> {
-            val sellerHasCAD = toCurrency == "IRR"
-            cadTrades.filter { it.selling == !sellerHasCAD && (!depositedOnly || (it.deposited == true && it.status == null)) }
-        }
-
-        pair == setOf("IRR", "USD") -> {
-            val sellerHasUSD = toCurrency == "IRR"
-            usdTrades.filter { it.selling == !sellerHasUSD && (!depositedOnly || (it.deposited == true && it.status == null)) }
-        }
-
-        else -> emptyList()
     }
 
     Scaffold(
@@ -181,7 +182,7 @@ fun TradesScreen(
                     Switch(
                         checked = depositedOnly,
                         onCheckedChange = { depositedOnly = it },
-                        modifier = Modifier.scale(0.5f),
+                        modifier = Modifier.scale(.5f),
                         colors = SwitchDefaults.colors(checkedTrackColor = ChosenMenu)
                     )
                     Text("Deposited Only", fontSize = 14.sp)
@@ -192,10 +193,13 @@ fun TradesScreen(
             val depositedTrades = tradeList.filter { it.deposited == true && it.status == null }
             DepositedCarousel(
                 trades = depositedTrades,
-//                onLock = { trade ->
-//                    if (token.isNullOrEmpty()) onLoginRequired()
-//                    else if (trade.id != null) homeViewModel.lockTrade(token, trade.id) {if (isSelling == true) onSell() else onBuy()}
-//                },
+                token = token,
+                user = user,
+                serviceRates = serviceRates,
+                onLoginRequired = onLoginRequired,
+                onLock = { trade, onSuccess ->
+                    if (trade.id != null) homeViewModel.lockTrade(token!!, trade.id, onSuccess)
+                },
                 onConfirm = { trade, onSuccess ->
                     if (token.isNullOrEmpty()) onLoginRequired()
                     else if (trade.id != null) homeViewModel.confirmTrade(
@@ -209,6 +213,12 @@ fun TradesScreen(
                             if (isSelling == true) onSell() else onBuy()
                         }
                     )
+                },
+                onUnlockExpired = { trade ->
+                    if (!token.isNullOrEmpty() && trade.id != null) homeViewModel.unlockTrade(token, trade.id)
+                },
+                onLoadServiceRate = { trade ->
+                    if (!token.isNullOrEmpty()) homeViewModel.loadServiceRate(token, trade.id ?: "", trade.amount ?: 0.0, trade.selling)
                 }
             )
 
@@ -290,19 +300,27 @@ fun TradesScreen(
 @Composable
 private fun DepositedCarousel(
     trades: List<TradeItem>,
-//    onAction: () -> Unit,
-//    onLock: (TradeItem) -> Unit,
-    onConfirm: (TradeItem, onSuccess: () -> Unit) -> Unit
+    token: String?,
+    user: ca.arzook.shared.model.AuthenticatedData? = null,
+    serviceRates: Map<String, Double> = emptyMap(),
+    onLoginRequired: () -> Unit = {},
+    onLock: (TradeItem, onSuccess: (LockedTrade) -> Unit) -> Unit = { _, _ -> },
+    onConfirm: (TradeItem, onSuccess: () -> Unit) -> Unit,
+    onUnlockExpired: (TradeItem) -> Unit = {},
+    onLoadServiceRate: (TradeItem) -> Unit = {}
 ) {
     if (trades.isEmpty()) return
     val pagerState = rememberPagerState(pageCount = { trades.size })
+    var dialogOpen by remember { mutableStateOf(false) }
 
-    // Auto-scroll every 3 seconds (full cycle ~1 min for 20 items)
-    LaunchedEffect(pagerState, trades.size) {
+    // Auto-scroll every 3 seconds, paused when dialog is open
+    LaunchedEffect(pagerState, trades.size, dialogOpen) {
         while (true) {
             delay(3000L)
-            val next = (pagerState.currentPage + 1) % trades.size
-            pagerState.animateScrollToPage(next)
+            if (!dialogOpen) {
+                val next = (pagerState.currentPage + 1) % trades.size
+                pagerState.animateScrollToPage(next)
+            }
         }
     }
 
@@ -312,7 +330,8 @@ private fun DepositedCarousel(
         contentPadding = PaddingValues(horizontal = 48.dp),
         pageSpacing = 12.dp
     ) { page ->
-        val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+        val pageOffset =
+            ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
         val scale = 1f - (pageOffset * 0.15f).coerceAtMost(0.15f)
 
         Card(
@@ -327,26 +346,108 @@ private fun DepositedCarousel(
             shape = RoundedCornerShape(12.dp)
         ) {
             val trade = trades[page]
+            var pendingLock by remember { mutableStateOf<LockedTrade?>(null) }
+            var countdown by remember { mutableIntStateOf(0) }
+            val serviceRate = serviceRates[trade.id]
+
+            LaunchedEffect(pendingLock) {
+                if (pendingLock != null) {
+                    while (countdown > 0) { delay(1000); countdown-- }
+                    if (pendingLock != null) { onUnlockExpired(trade); pendingLock = null; dialogOpen = false }
+                }
+            }
+
+            pendingLock?.let { lock ->
+                val askingRate = if (trade.selling)
+                    (trade.exchangeRate ?: 0.0) - (trade.serviceRate ?: 0.0)
+                else
+                    (trade.exchangeRate ?: 0.0) + (trade.serviceRate ?: 0.0)
+                AlertDialog(
+                    onDismissRequest = { onUnlockExpired(trade); pendingLock = null; dialogOpen = false },
+                    title = { Text("Confirm ${if (trade.selling) "Buy" else "Sell"}") },
+                    text = {
+                        Column {
+                            Text("⏱ You have $countdown seconds to confirm.", fontWeight = FontWeight.Bold, color = if (countdown <= 10) Color.Red else Color.Unspecified)
+                            Spacer(Modifier.height(8.dp))
+                            if (trade.selling) {
+                                Text("YOU SEND", color = Brown, fontWeight = FontWeight.Bold)
+                                Text("${formatIrr((trade.exchangeRate ?: 0.0) * (trade.amount ?: 0.0))} IRR")
+                                Spacer(Modifier.height(4.dp))
+                                Text("YOU GET", color = GreenSold, fontWeight = FontWeight.Bold)
+                                Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency ?: "CAD"}")
+                                if (lock.arzookBankInfoName != null) InfoRow("Arzook Recipient", lock.arzookBankInfoName)
+                                if (lock.arzookBankInfoSheba != null) InfoRow("Sheba", lock.arzookBankInfoSheba)
+                                if (lock.arzookDepositEmail != null) InfoRow("e-Transfer to", lock.arzookDepositEmail)
+                                InfoRow("e-Transfer password", lock.password ?: "N/A")
+                            } else {
+                                Text("YOU SEND", color = Brown, fontWeight = FontWeight.Bold)
+                                Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency ?: "CAD"}")
+                                InfoRow("e-Transfer to", user?.email ?: "TBD")
+                                InfoRow("e-Transfer password", "N/A")
+                                Spacer(Modifier.height(4.dp))
+                                Text("YOU GET", color = GreenSold, fontWeight = FontWeight.Bold)
+                                Text("${formatIrr(askingRate * (trade.amount ?: 0.0))} IRR")
+                                InfoRow("Your Sheba", trade.sheba ?: "TBD")
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            HorizontalDivider()
+                            InfoRow("1 ${trade.currency ?: "CAD"}", "${formatIrr(trade.exchangeRate ?: 0.0)} IRR")
+                            if (serviceRate != null) InfoRow("Service Rate", "${formatIrr(serviceRate)} IRR per ${trade.currency ?: "CAD"}")
+                            if (lock.complianceFee > 0.0) {
+                                InfoRow("Compliance Fee", "${formatIrr(lock.complianceFee)} IRR")
+                                Text("The Compliance Fee applies to all transactions as part of our regulatory compliance measures", fontSize = 10.sp)
+                            }
+                            if (lock.holdTransactionFee > 0) InfoRow("Transaction fee", "${formatIrr(lock.holdTransactionFee.toDouble())} IRR")
+                        }
+                    },
+                    confirmButton = {
+                        ArzookButton(onClick = { pendingLock = null; dialogOpen = false; onConfirm(trade) {} }, containerColor = GreenSold, contentColor = Color.White, modifier = Modifier) { Text("Confirm") }
+                    },
+                    dismissButton = {
+                        ArzookButton(onClick = { onUnlockExpired(trade); pendingLock = null; dialogOpen = false }, containerColor = Brown, contentColor = Color.White, modifier = Modifier) { Text("Cancel") }
+                    }
+                )
+            }
+
             Column(
                 modifier = Modifier.padding(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Amount: ${formatIrr(trade.amount ?: 0.0)} ${trade.currency ?: ""}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Rate: ${trade.askingRate ?: trade.exchangeRate ?: "-"}", fontSize = 12.sp)
-                Text("Total: ${trade.total ?: "${formatIrr((trade.amount ?: 0.0) * (trade.exchangeRate ?: 0.0))} IRR"}", fontSize = 12.sp)
+                InfoRow(
+                    "Amount", " ${formatIrr(trade.amount ?: 0.0)} ${trade.currency ?: ""}",
+                )
+                InfoRow(
+                    "Rate",
+                    " ${trade.askingRate ?: trade.exchangeRate ?: "-"}",
+                    fontSize = 12.sp
+                )
+                InfoRow(
+                    "Total",
+                    " ${trade.total ?: "${formatIrr((trade.amount ?: 0.0) * ((trade.exchangeRate ?: 0.0) - (trade.serviceRate ?: 0.0)))} IRR"}",
+                    fontSize = 12.sp
+                )
                 Spacer(Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Button(
-                        onClick = { },//onConfirm(trade) {} 
+                    ArzookButton(
+                        onClick = {
+                            if (token.isNullOrEmpty()) onLoginRequired()
+                            else {
+                                onLoadServiceRate(trade)
+                                onLock(trade) { lock -> pendingLock = lock; countdown = lock.autoLockExpiresIn; dialogOpen = true }
+                            }
+                        },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Green)
+                        containerColor = Green,
+                        contentColor = Color.White
                     ) {
-                        Text(if (!trade.selling) "Sell" else if (trade.urgent == true)
-                            "Buy 🔥" else "Buy", color = Color.White, fontSize = 11.sp)
+                        Text(
+                            if (!trade.selling) "Sell" else if (trade.urgent == true)
+                                "Buy 🔥" else "Buy", color = Color.White, fontSize = 11.sp
+                        )
                     }
                 }
             }
@@ -373,28 +474,19 @@ private fun TradeCard(
     buyingDraft: TradeItem? = null,
     sellingDraft: TradeItem? = null,
     walletBalance: Long? = null,
-//    lockedTrade: LockedTrade? = null,
     serviceRate: Double? = null,
-//    snackbarHostState: SnackbarHostState? = null,
-//    coroutineScope: CoroutineScope? = null,
 ) {
-//    val repo = remember { ArzookRepositoryImpl("https://api.arzook.ca") }
     val isWatched = watchList.any { it.offeringId == trade.id }
     val isSoldOut = trade.status != null
     val isDeposited = trade.deposited == true
-//    val cardColor = when {
-//        isSoldOut -> Color.White//green
-//        isDeposited -> Color.White//greenSold
-//        else -> Color.White//Cream40
-//    }
-    val textColor = Color.Black//if (isSoldOut || isDeposited) Color.White else Color.Unspecified
-    val subTextColor =
-        Color.Black//if (isSoldOut || isDeposited) Color.White.copy(alpha = 0.8f) else Color.DarkGray
-
-//    var expanded by remember { mutableStateOf(false) }
+    val textColor = Color.Black
+    val subTextColor = Color.Black
     var showBalanceAlert by remember { mutableStateOf(false) }
     var pendingLock by remember { mutableStateOf<LockedTrade?>(null) }
     var countdown by remember { mutableStateOf(0) }
+    val askingRate = if(trade.selling)((trade.exchangeRate ?: 0.0) + (serviceRate ?: 0.0)) else ((trade.exchangeRate ?: 0.0) - (serviceRate ?: 0.0));
+    println("[rate]: $askingRate")
+
 
     // Countdown timer when lock dialog is showing
     LaunchedEffect(pendingLock) {
@@ -428,46 +520,91 @@ private fun TradeCard(
                         color = if (countdown <= 10) Color.Red else Color.Unspecified
                     )
                     Spacer(Modifier.height(8.dp))
-                    if (lock.arzookDepositEmail != null)
-                        Text("Deposit e-Transfer to: ${lock.arzookDepositEmail}")
-                    if (lock.arzookBankInfoName != null)
-                        Text("Bank: ${lock.arzookBankInfoName}")
-                    if (lock.arzookBankInfoSheba != null)
-                        Text("Sheba: ${lock.arzookBankInfoSheba}")
-                    if (lock.holdTransactionFee > 0)
-                        Text("Transaction fee: ${formatIrr(lock.holdTransactionFee.toDouble())} IRR")
+                    if (trade.selling) {
+                        // Buying flow - user sends IRR, gets CAD
+                        Text("YOU SEND", color = Brown, fontWeight = FontWeight.Bold)
+                        Text("${formatIrr(askingRate * (trade.amount ?: 0.0)+lock.complianceFee)} IRR")
+                        if (lock.arzookBankInfoName != null)
+                            InfoRow("Arzook Recipient", lock.arzookBankInfoName)
+                        if (lock.arzookBankInfoSheba != null) {
+                            InfoRow("Sheba", lock.arzookBankInfoSheba)
+                            InfoRow("Deposit Id (شناسه واریز)", user?.customerDepositId.toString())
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text("YOU GET", color = GreenSold, fontWeight = FontWeight.Bold)
+                        Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency ?: "CAD"}")
+                        InfoRow("e-Transfer to", user?.email ?: "TBD")
+                        InfoRow("e-Transfer password", lock.password ?: "N/A")
+                    } else {
+                        // Selling flow - user sends CAD, gets IRR
+                        Text("YOU SEND", color = Brown, fontWeight = FontWeight.Bold)
+                        Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency ?: "CAD"}")
+                        InfoRow("e-Transfer Detail", "TBD")
+
+                        Spacer(Modifier.height(4.dp))
+                        Text("YOU GET", color = GreenSold, fontWeight = FontWeight.Bold)
+                        Text("${formatIrr(askingRate * (trade.amount ?: 0.0)-lock.complianceFee)} IRR")
+                        InfoRow("Your Sheba", trade.sheba ?: "TBD")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    HorizontalDivider()
+                    InfoRow(
+                        "1 ${trade.currency ?: "CAD"}",
+                        "${formatIrr(trade.exchangeRate ?: 0.0)} IRR"
+                    )
+                    if (serviceRate != null)
+                        InfoRow(
+                            "Service Rate",
+                            "${formatIrr(serviceRate)} IRR per ${trade.currency ?: "CAD"}"
+                        )
+                    if (!trade.selling) {
+                        InfoRow(
+                            "Total Amount",
+                            "${formatIrr((askingRate) * (trade.amount ?: 0.0))} IRR"
+                        )
+                    }
                     if (lock.complianceFee > 0.0) {
-                        Text("Compliance Fee ($5): ${formatIrr(lock.complianceFee)}")
+                        InfoRow("Compliance Fee", "${formatIrr(lock.complianceFee)} IRR")
+                        if (!trade.selling) {
+                            val netPayout = askingRate * (trade.amount ?: 0.0) - lock.complianceFee
+                            InfoRow("Net Payout", "${formatIrr(netPayout)} IRR")
+                        } else {
+                            val netPayout = askingRate * (trade.amount ?: 0.0) + lock.complianceFee
+                            InfoRow("Net Payout", "${formatIrr(netPayout)} IRR")
+                        }
                         Text(
                             "The Compliance Fee applies to all transactions as part of our regulatory compliance measures",
                             fontSize = 10.sp
                         )
                     }
-
-
+                    if (lock.holdTransactionFee > 0)
+                        InfoRow(
+                            "Transaction fee",
+                            "${formatIrr(lock.holdTransactionFee.toDouble())} IRR"
+                        )
                 }
             },
             confirmButton = {
                 print("[onConfirm] id = ${trade.id}")
-                Button(
+                ArzookButton(
+                    modifier = Modifier,
                     onClick = {
                         pendingLock = null
                         onConfirm {}
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = GreenSold
-                    )
+                    contentColor = Color.White,
+                    containerColor = GreenSold
                 ) { Text("Confirm") }
             },
             dismissButton = {
-                TextButton(
+                ArzookButton(
+                    modifier = Modifier,
                     onClick = {
                         if (!token.isNullOrEmpty() && trade.id != null) onUnlockExpired()
                         pendingLock = null
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Brown
-                    )
+                    contentColor = Color.White,
+                    containerColor = Brown
                 ) { Text("Cancel") }
             }
         )
@@ -485,7 +622,10 @@ private fun TradeCard(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showBalanceAlert = false }) { Text("OK") }
+                ArzookButton(
+                    onClick = { showBalanceAlert = false },
+                    containerColor = GreenSold
+                ) { Text("OK") }
             }
         )
     }
@@ -533,7 +673,7 @@ private fun TradeCard(
                     Column(horizontalAlignment = Alignment.Start) {
                         Text("Total", fontSize = 12.sp, color = textColor)
                         Text(
-                            "${formatIrr((trade.amount ?: 0.0) * (trade.exchangeRate ?: 0.0))} IRR",
+                            "${formatIrr((trade.amount ?: 0.0) * (askingRate))} IRR",
                             fontWeight = FontWeight.SemiBold,
                             color = subTextColor,
                             fontSize = 14.sp
@@ -577,8 +717,7 @@ private fun TradeCard(
                             user = user,
                             buyingDraft = buyingDraft,
                             sellingDraft = sellingDraft,
-//                            textColor = textColor,
-//                            lockedTrade = lockedTrade
+                            askingRate = askingRate
                         )
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                         Row(
@@ -586,19 +725,6 @@ private fun TradeCard(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-//                                Text("1 ${trade.currency} = ${formatIrr(trade.exchangeRate ?: 0.0)} IRR", color = subTextColor, fontSize = 12.sp)
-//                                if (serviceRate != null)
-//                                    Text("Service Rate: ${formatIrr(serviceRate)} IRR per ${trade.currency}", color = subTextColor, fontSize = 12.sp)
-                                InfoRow(
-                                    "Service Rate",
-                                    "IRR ${serviceRate?.let { formatIrr(it) }} per ${trade.currency}",
-                                    fontSize = 12.sp
-                                )
-                                InfoRow(
-                                    "1 ${trade.currency}",
-                                    "IRR ${formatIrr(trade.exchangeRate ?: 0.0)}",
-                                    fontSize = 12.sp
-                                )
                                 if (trade.complianceFee > 0.0) {
                                     var showComplianceInfo by remember { mutableStateOf(false) }
                                     if (showComplianceInfo) {
@@ -606,15 +732,15 @@ private fun TradeCard(
                                             onDismissRequest = { showComplianceInfo = false },
                                             text = { Text("The Compliance Fee applies to all transactions as part of our regulatory compliance measures") },
                                             confirmButton = {
-                                                TextButton(onClick = {
+                                                ArzookButton(onClick = {
                                                     showComplianceInfo = false
-                                                }) { Text("OK") }
+                                                }, containerColor = GreenSold) { Text("OK") }
                                             }
                                         )
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         InfoRow(
-                                            "Compliance fee ($5)",
+                                            "Compliance fee",
                                             "IRR ${formatIrr(trade.complianceFee)}"
                                         )
                                         IconButton(onClick = { showComplianceInfo = true }) {
@@ -625,6 +751,22 @@ private fun TradeCard(
                                         }
                                     }
                                 }
+                                InfoRow(
+                                    "Service Rate",
+                                    "IRR ${serviceRate?.let { formatIrr(it) }} per ${trade.currency}",
+                                    fontSize = 12.sp
+                                )
+                                InfoRow(
+                                    "1 ${trade.currency}",
+                                    "IRR ${formatIrr(trade.exchangeRate ?: 0.0)}",
+                                    fontSize = 12.sp
+                                )
+                                if(trade.complianceFee>0.0)
+                                    InfoRow(
+                                        "Compliance Fee",
+                                        "${formatIrr(trade.complianceFee)} IRR",
+                                        fontSize = 12.sp
+                                    )
                             }
                             ArzookButton(
                                 onClick = {
@@ -662,13 +804,39 @@ private fun TradeCard(
                             )
                         }
                         Spacer(Modifier.height(12.dp))
-                        WatchSheet(trade = trade)
+                        WatchSheet(trade = trade, askingRate)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
+//                                if (trade.complianceFee != null && trade.complianceFee.toDouble() > 0.0) {
+//                                    var showComplianceInfo by remember { mutableStateOf(false) }
+//                                    if (showComplianceInfo) {
+//                                        AlertDialog(
+//                                            onDismissRequest = { showComplianceInfo = false },
+//                                            text = { Text("The Compliance Fee applies to all transactions as part of our regulatory compliance measures") },
+//                                            confirmButton = {
+//                                                ArzookButton(onClick = {
+//                                                    showComplianceInfo = false
+//                                                }, containerColor = GreenSold) { Text("OK") }
+//                                            }
+//                                        )
+//                                    }
+//                                    Row(verticalAlignment = Alignment.CenterVertically) {
+//                                        InfoRow(
+//                                            "Compliance fee",
+//                                            "${formatIrr(trade.complianceFee)} IRR"
+//                                        )
+//                                        IconButton(onClick = { showComplianceInfo = true }) {
+//                                            Icon(
+//                                                imageVector = Icons.Default.Help,
+//                                                contentDescription = null
+//                                            )
+//                                        }
+//                                    }
+//                                }
                                 InfoRow(
                                     "Service Rate",
                                     "${serviceRate?.let { formatIrr(it) }} IRR per ${trade.currency}",
@@ -679,32 +847,11 @@ private fun TradeCard(
                                     "${formatIrr(trade.exchangeRate ?: 0.0)} IRR",
                                     fontSize = 12.sp
                                 )
-                                if (trade.complianceFee != null && trade.complianceFee.toDouble() > 0.0) {
-                                    var showComplianceInfo by remember { mutableStateOf(false) }
-                                    if (showComplianceInfo) {
-                                        AlertDialog(
-                                            onDismissRequest = { showComplianceInfo = false },
-                                            text = { Text("The Compliance Fee applies to all transactions as part of our regulatory compliance measures") },
-                                            confirmButton = {
-                                                TextButton(onClick = {
-                                                    showComplianceInfo = false
-                                                }) { Text("OK") }
-                                            }
-                                        )
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        InfoRow(
-                                            "Compliance fee ($5)",
-                                            "${formatIrr(trade.complianceFee)} IRR"
-                                        )
-                                        IconButton(onClick = { showComplianceInfo = true }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Help,
-                                                contentDescription = null
-                                            )
-                                        }
-                                    }
-                                }
+//                                InfoRow(
+//                                    "Compliance Fee",
+//                                    "${formatIrr(trade.complianceFee)} IRR",
+//                                    fontSize = 12.sp
+//                                )
                             }
                             ArzookButton(
                                 onClick = {
@@ -731,17 +878,16 @@ private fun TradeCard(
 @Composable
 private fun TradeInfoRows(
     trade: TradeItem,
-//    textColor: Color,
     subTextColor: Color,
     user: ca.arzook.shared.model.AuthenticatedData? = null,
     buyingDraft: TradeItem? = null,
     sellingDraft: TradeItem? = null,
-//    lockedTrade: LockedTrade? = null,
+    askingRate: Double
 ) {
     if (trade.selling) {
         Text("YOU SEND", fontWeight = FontWeight.ExtraBold, color = Brown)
         Text(
-            "${formatIrr((trade.exchangeRate ?: 0.0) * (trade.amount ?: 0.0))} IRR",
+            "${formatIrr((trade.amount ?: 0.0) * askingRate)} IRR",
             color = subTextColor
         )
         Text("Arzook Recipient: ${buyingDraft?.arzookBankInfoName}", color = subTextColor)
@@ -769,7 +915,7 @@ private fun TradeInfoRows(
         Spacer(Modifier.height(12.dp))
         Text("YOU GET", fontWeight = FontWeight.ExtraBold, color = Green)
         Text(
-            "${formatIrr((trade.exchangeRate ?: 0.0) * (trade.amount ?: 0.0))} IRR",
+            "${formatIrr((trade.amount ?: 0.0) * askingRate)} IRR",
             color = subTextColor
         )
         Text("Your Sheba: 'TBD'", color = subTextColor)
@@ -780,10 +926,11 @@ private fun TradeInfoRows(
 @Composable
 private fun WatchSheet(
     trade: TradeItem,
+    askingRate: Double
 ) {
     if (trade.selling) {
         Text("YOU SEND", fontWeight = FontWeight.ExtraBold, color = Brown)
-        Text("${formatIrr((trade.exchangeRate ?: 0.0) * (trade.amount ?: 0.0))} IRR")
+        Text("${formatIrr((askingRate) * (trade.amount ?: 0.0))} IRR")
         Spacer(Modifier.height(12.dp))
         Text("YOU GET", fontWeight = FontWeight.ExtraBold, color = Green)
         Text("${formatCad(trade.amount ?: 0.0)} ${trade.currency}")
@@ -792,7 +939,7 @@ private fun WatchSheet(
         Text("${formatCad(trade.amount ?: 0.0)} ${trade.currency}")
         Spacer(Modifier.height(12.dp))
         Text("YOU GET", fontWeight = FontWeight.ExtraBold, color = Green)
-        Text("${formatIrr((trade.exchangeRate ?: 0.0) * (trade.amount ?: 0.0))} IRR")
+        Text("${formatIrr((askingRate) * (trade.amount ?: 0.0))} IRR")
     }
 }
 

@@ -291,8 +291,8 @@ internal fun BuyingDraftRow(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         InfoRow("Compliance fee", "${formatIrr(draft.complianceFee)} IRR")
-                        IconButton(onClick = { showComplianceInfo = true }) {
-                            Icon(imageVector = Icons.Default.Help, contentDescription = null)
+                        IconButton(onClick = { showComplianceInfo = true }, modifier = Modifier.size(24.dp)) {
+                            Icon(imageVector = Icons.Default.Help, contentDescription = null, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -307,9 +307,36 @@ internal fun BuyingDraftRow(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
+                            var showPostAlert by remember { mutableStateOf(false) }
+                            if (showPostAlert) {
+                                AlertDialog(
+                                    onDismissRequest = { showPostAlert = false },
+                                    title = { Text("Are you sure you want to make your buying invisible to other customers?") },
+                                    text = { Text("By turning off the \"Post\" slider, others will no longer see your buying.") },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                showPostAlert = false
+                                                advertised = false
+                                                if (token.isNotEmpty()) homeViewModel?.updateBuyingAdvertised(token, draft.copy(advertised = false))
+                                            },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = GreenSold)
+                                        ) { Text("Yes", color = Color.White) }
+                                    },
+                                    dismissButton = {
+                                        TextButton(
+                                            onClick = { showPostAlert = false },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = Brown)
+                                        ) { Text("No", color = Color.White) }
+                                    }
+                                )
+                            }
                             Switch(
                                 checked = advertised,
-                                onCheckedChange = { advertised = it },
+                                onCheckedChange = {
+                                    if (!it) showPostAlert = true
+                                    else { advertised = true; if (token.isNotEmpty()) homeViewModel?.updateBuyingAdvertised(token, draft.copy(advertised = true)) }
+                                },
                                 modifier = Modifier.scale(0.5f).size(20.dp),
                                 colors = SwitchDefaults.colors(
                                     checkedTrackColor = ChosenMenu
@@ -321,25 +348,65 @@ internal fun BuyingDraftRow(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
+                            var showSmartMatchAlert by remember { mutableStateOf(false) }
+                            if (showSmartMatchAlert) {
+                                AlertDialog(
+                                    onDismissRequest = { showSmartMatchAlert = false },
+                                    title = { Text("Are you sure you want to disable Smart Matching?") },
+                                    text = { Text("Smart Matching is a great feature of buy all competitive Sellings automatically.") },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                showSmartMatchAlert = false
+                                                smartMatching = false
+                                                if (token.isNotEmpty()) homeViewModel?.updateBuyingSmartMatching(token, draft.id ?: "", draft.purposeOfTransaction ?: "", draft.sourceOfFund ?: "", false)
+                                            },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = GreenSold)
+                                        ) { Text("Yes", color = Color.White) }
+                                    },
+                                    dismissButton = {
+                                        TextButton(
+                                            onClick = { showSmartMatchAlert = false },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = Brown)
+                                        ) { Text("No", color = Color.White) }
+                                    }
+                                )
+                            }
                             Switch(
                                 checked = smartMatching,
-                                onCheckedChange = { smartMatching = it },
+                                onCheckedChange = {
+                                    if (!it) showSmartMatchAlert = true
+                                    else { smartMatching = true; if (token.isNotEmpty()) homeViewModel?.updateBuyingSmartMatching(token, draft.id ?: "", draft.purposeOfTransaction ?: "", draft.sourceOfFund ?: "", true) }
+                                },
                                 modifier = Modifier.scale(0.5f).size(20.dp),
                                 colors = SwitchDefaults.colors(checkedTrackColor = ChosenMenu)
                             )
                             Text(" Smart Matching")
                         }
                     }
-                    Button(
+                    var showDepositedAlert by remember { mutableStateOf(false) }
+                    if (showDepositedAlert) {
+                        AlertDialog(
+                            onDismissRequest = { showDepositedAlert = false },
+                            title = { Text("Cannot Delete") },
+                            text = { Text("Please make it unposted first, then delete the trade.") },
+                            confirmButton = {
+                                TextButton(onClick = { showDepositedAlert = false }) { Text("OK") }
+                            }
+                        )
+                    }
+                    ArzookButton(
                         onClick = {
-                            if (token.isNotEmpty()) homeViewModel?.deleteBuyingDraft(
+                            if (draft.advertised == true) showDepositedAlert = true
+                            else if (token.isNotEmpty()) homeViewModel?.deleteBuyingDraft(
                                 token,
                                 draft.id ?: "",
                                 onSuccess = onDeleted
                             )
                         },
-                        shape = RectangleShape,
-                        colors = ButtonDefaults.buttonColors(containerColor = Brown)
+                        containerColor = Brown,
+                        contentColor = Color.White,
+                        modifier = Modifier
                     ) { Text("Delete", color = Color.White) }
                 }
                 HorizontalDivider(thickness = 2.dp)
@@ -375,7 +442,7 @@ internal fun CompletedBuyingRow(trade: TradeItem, token: String) {
 //            verticalAlignment = Alignment.CenterVertically
         ) {
             (trade.sellingCode ?: trade.buyingCode)?.let { Text(it) }
-            Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency}")
+            Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency?:"CAD"}")
             Text(trade.exchangeDepositedTime?.take(10) ?: "")
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -399,7 +466,7 @@ internal fun CompletedBuyingRow(trade: TradeItem, token: String) {
                     formatIrr(abs((trade.askingRate ?: 0.0) - (trade.exchangeRate ?: 0.0)))
                 )
                 if (trade.complianceFee > 0.0) {
-                    InfoRow("Compliance Fee ($5)", "${formatIrr(trade.complianceFee)} IRR")
+                    InfoRow("Compliance Fee", "${formatIrr(trade.complianceFee)} IRR")
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),

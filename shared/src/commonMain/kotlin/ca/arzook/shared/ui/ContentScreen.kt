@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -53,49 +54,65 @@ fun ContentScreen(title: String, onBack: () -> Unit) {
 
     val direction = if (isFarsi) LayoutDirection.Rtl else LayoutDirection.Ltr
 
-    Spacer(Modifier.height(12.dp))
-    CompositionLocalProvider(LocalLayoutDirection provides direction) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Back top bar
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    val selectedBg = Green
-                    val unselectedBg = Brown
-                    TextButton(
-                        onClick = { isFarsi = false },
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = if (!isFarsi) selectedBg else unselectedBg,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) { Text("English", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
-                    TextButton(
-                        onClick = { isFarsi = true },
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = if (isFarsi) selectedBg else unselectedBg,
-                            contentColor = Color.White //if (isFarsi) Color.White else Color.Black
-                        ),
-                        shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) { Text("فارسی", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
-                }
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Spacer(Modifier.height(12.dp))
-            when (title) {
-                "About Us" -> if (isFarsi) AboutUsFa() else AboutUsContent()
-                "How It Works" -> if (isFarsi) HowItWorksFa() else HowItWorksContent()
-                "FAQ" -> if (isFarsi) FaqFa(onFullscreen = { fullscreenVideoId = it }) else FaqContent(onFullscreen = { fullscreenVideoId = it })
-                "Privacy Policy" -> if (isFarsi) PrivacyPolicyFa() else PrivacyPolicyContent()
-                "Terms and Conditions" -> if (isFarsi) TermsFa() else TermsContent()
-                "Contact Us" -> if (isFarsi) ContactUsFa() else ContactUsContent()
+            Text(title, style = MaterialTheme.typography.titleMedium)
+        }
+        HorizontalDivider()
+
+        CompositionLocalProvider(LocalLayoutDirection provides direction) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Show language selection for all except "How It Works"
+                if (title != "How It Works") {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            val selectedBg = Green
+                            val unselectedBg = Brown
+                            TextButton(
+                                onClick = { isFarsi = false },
+                                colors = ButtonDefaults.textButtonColors(
+                                    containerColor = if (!isFarsi) selectedBg else unselectedBg,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("English", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                            TextButton(
+                                onClick = { isFarsi = true },
+                                colors = ButtonDefaults.textButtonColors(
+                                    containerColor = if (isFarsi) selectedBg else unselectedBg,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) { Text("فارسی", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+                when (title) {
+                    "About Us" -> if (isFarsi) AboutUsFa() else AboutUsContent()
+                    "How It Works" -> if (isFarsi) HowItWorksFa() else HowItWorksContent()
+                    "FAQ" -> if (isFarsi) FaqFa(onFullscreen = { fullscreenVideoId = it }) else FaqContent(onFullscreen = { fullscreenVideoId = it })
+                    "Privacy Policy" -> if (isFarsi) PrivacyPolicyFa() else PrivacyPolicyContent()
+                    "Terms and Conditions" -> if (isFarsi) TermsFa() else TermsContent()
+                    "Contact Us" -> if (isFarsi) ContactUsFa() else ContactUsContent()
+                }
             }
         }
     }
@@ -117,8 +134,17 @@ private fun toFarsiTitle(title: String) = when (title) {
     Text(text, fontSize = 15.sp, lineHeight = 22.sp, modifier = Modifier.padding(bottom = 12.dp))
 
 @Composable fun AboutUsContent() {
-    Body("Arzook is a Canadian online currency exchange platform that offers convenient, transparent services for exchanging and transferring money overseas. Customers can choose their desired exchange rates and use the platform to exchange and send money from anywhere, anytime.")
-    Body("As a FINTRAC registered MSB, Arzook is subject to certain regulations set by the Financial Transactions and Reports Analysis Centre of Canada. Arzook is also available 24/7 to serve customers worldwide. With its online platform, customers can access Arzook at any time, making it a convenient choice for all of your currency exchange and money transfer needs. Plus, with a secure, trusted payment process in place, you can trust that your transactions with Arzook are safe and secure. Whether you're looking to exchange or transfer money, Arzook has you covered.")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Body("Arzook is a Canadian online currency exchange platform that offers convenient, transparent services for exchanging and transferring money overseas. Customers can choose their desired exchange rates and use the platform to exchange and send money from anywhere, anytime.")
+            Body("As a FINTRAC registered MSB, Arzook is subject to certain regulations set by the Financial Transactions and Reports Analysis Centre of Canada. Arzook is also available 24/7 to serve customers worldwide. With its online platform, customers can access Arzook at any time, making it a convenient choice for all of your currency exchange and money transfer needs. Plus, with a secure, trusted payment process in place, you can trust that your transactions with Arzook are safe and secure. Whether you're looking to exchange or transfer money, Arzook has you covered.")
+        }
+    }
 }
 
 @Composable fun HowItWorksContent() {
@@ -363,17 +389,16 @@ private fun StepRowItem(row: StepRow) {
 }
 
 @Composable fun PrivacyPolicyContent() {
-    SectionTitle("What we collect and why")
-    Body("We collect your name, contact information, data and time of your account creation, IP address and device identifier. We also collect your hashed password if you create an account using the signup page. If you use Social Login to create account, we will get your full name, profile picture and contact info from the Social Sign On provider (Google).\nWe also collect your banking information and your payees' banking information if they are different from yours.")
-    SectionTitle("Collection and Use of Personal Information")
-    Body("Arzook collects your personal information to be able to serve you. We need your email address to communicate with you and also send you e-Transfers. We also collect & validate your valid photo id to know you. This is a FINTRAC mandate.")
-    SectionTitle("Disclosure of Personal Information")
-    Body("We may share your personal information with other parties when needed to conduct the business.")
-    SectionTitle("Data Protection Policies")
-    Body("In order to secure your account, your password gets hashed, and the hashed password will be used for authentication. The hashed password is irreversible so nobody can find out what you have chosen as your password.\nWe also encrypt our databases to protect the entire data we store. All user communications with Arzook is via HTTPS protocol which encrypts data in transit. Our transactional email to customers are also TLS encrypted.")
-    SectionTitle("Updates to the Privacy Policy")
-    Body("This Privacy Policy is current as of the \"Last Updated\" date which appears at the bottom of the page. Your continued use of the Arzook Platform after any change of our Privacy Policy will constitute your acceptance of the revised terms of this Privacy Policy. We may update this Privacy Policy from time to time as required to reflect changes to our privacy practices. We encourage you to periodically review this page for the latest information on our privacy practices.\nWe love to hear from you. If you would like to access your information, or would like to receive a copy of our this Privacy Policy, or have any questions and concerns with regards to the Privacy Policy, please contact us.")
-    Body("\nLast Updated: December 23, 2020")
+    FaqItem("What we collect and why",
+        "We collect your name, contact information, data and time of your account creation, IP address and device identifier. We also collect your hashed password if you create an account using the signup page. If you use Social Login to create account, we will get your full name, profile picture and contact info from the Social Sign On provider (Google).\nWe also collect your banking information and your payees' banking information if they are different from yours.")
+    FaqItem("Collection and Use of Personal Information",
+        "Arzook collects your personal information to be able to serve you. We need your email address to communicate with you and also send you e-Transfers. We also collect & validate your valid photo id to know you. This is a FINTRAC mandate.")
+    FaqItem("Disclosure of Personal Information",
+        "We may share your personal information with other parties when needed to conduct the business.")
+    FaqItem("Data Protection Policies",
+        "In order to secure your account, your password gets hashed, and the hashed password will be used for authentication. The hashed password is irreversible so nobody can find out what you have chosen as your password.\nWe also encrypt our databases to protect the entire data we store. All user communications with Arzook is via HTTPS protocol which encrypts data in transit. Our transactional email to customers are also TLS encrypted.")
+    FaqItem("Updates to the Privacy Policy",
+        "This Privacy Policy is current as of the \"Last Updated\" date which appears at the bottom of the page. Your continued use of the Arzook Platform after any change of our Privacy Policy will constitute your acceptance of the revised terms of this Privacy Policy. We may update this Privacy Policy from time to time as required to reflect changes to our privacy practices. We encourage you to periodically review this page for the latest information on our privacy practices.\nWe love to hear from you. If you would like to access your information, or would like to receive a copy of our this Privacy Policy, or have any questions and concerns with regards to the Privacy Policy, please contact us.\n\nLast Updated: December 23, 2020")
 }
 
 @Composable fun TermsContent() {
@@ -403,8 +428,17 @@ private fun StepRowItem(row: StepRow) {
 }
 
 @Composable fun AboutUsFa() {
-    Body("ارزوک یک پلتفرم آنلاین تبادل ارز کانادایی است که خدمات راحت و شفاف برای تبادل و انتقال پول به خارج از کشور ارائه می‌دهد. مشتریان می‌توانند نرخ ارز مورد نظر خود را انتخاب کرده و از هر جایی و در هر زمانی از پلتفرم برای تبادل و ارسال پول استفاده کنند.")
-    Body("ارزوک به عنوان یک MSB ثبت‌شده در FINTRAC، تابع مقررات مرکز تحلیل تراکنش‌های مالی و گزارش‌های کانادا است. ارزوک همچنین ۲۴ ساعته و ۷ روز هفته در خدمت مشتریان سراسر جهان است. با پلتفرم آنلاین ارزوک، مشتریان می‌توانند در هر زمانی به آن دسترسی داشته باشند. با فرآیند پرداخت امن و مطمئن، می‌توانید به تراکنش‌های خود با ارزوک اطمینان داشته باشید.")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Body("ارزوک یک پلتفرم آنلاین تبادل ارز کانادایی است که خدمات راحت و شفاف برای تبادل و انتقال پول به خارج از کشور ارائه می‌دهد. مشتریان می‌توانند نرخ ارز مورد نظر خود را انتخاب کرده و از هر جایی و در هر زمانی از پلتفرم برای تبادل و ارسال پول استفاده کنند.")
+            Body("ارزوک به عنوان یک MSB ثبت‌شده در FINTRAC، تابع مقررات مرکز تحلیل تراکنش‌های مالی و گزارش‌های کانادا است. ارزوک همچنین ۲۴ ساعته و ۷ روز هفته در خدمت مشتریان سراسر جهان است. با پلتفرم آنلاین ارزوک، مشتریان می‌توانند در هر زمانی به آن دسترسی داشته باشند. با فرآیند پرداخت امن و مطمئن، می‌توانید به تراکنش‌های خود با ارزوک اطمینان داشته باشید.")
+        }
+    }
 }
 
 @Composable fun HowItWorksFa() = HowItWorksContent()
@@ -559,17 +593,16 @@ private fun FaqItem(question: String, answer: String, videoId: String = "", onFu
 }
 
 @Composable fun PrivacyPolicyFa() {
-    SectionTitle("چه اطلاعاتی جمع‌آوری می‌کنیم و چرا")
-    Body("ما نام، اطلاعات تماس، تاریخ و زمان ایجاد حساب، آدرس IP و شناسه دستگاه شما را جمع‌آوری می‌کنیم. همچنین رمز عبور هش‌شده شما را در صورت ثبت‌نام از طریق صفحه ثبت‌نام جمع‌آوری می‌کنیم. اگر از ورود اجتماعی (گوگل) استفاده کنید، نام کامل، تصویر پروفایل و اطلاعات تماس شما از ارائه‌دهنده دریافت می‌شود.\nهمچنین اطلاعات بانکی شما و دریافت‌کنندگان پرداخت شما را جمع‌آوری می‌کنیم.")
-    SectionTitle("جمع‌آوری و استفاده از اطلاعات شخصی")
-    Body("ارزوک اطلاعات شخصی شما را برای ارائه خدمات جمع‌آوری می‌کند. به آدرس ایمیل شما برای ارتباط و ارسال ایترنسفر نیاز داریم. همچنین هویت شما را از طریق مدرک شناسایی معتبر تأیید می‌کنیم. این یک الزام FINTRAC است.")
-    SectionTitle("افشای اطلاعات شخصی")
-    Body("ممکن است اطلاعات شخصی شما را در صورت نیاز برای انجام کسب‌وکار با سایر طرف‌ها به اشتراک بگذاریم.")
-    SectionTitle("سیاست‌های حفاظت از داده")
-    Body("برای امنیت حساب شما، رمز عبور هش می‌شود و هیچ‌کس نمی‌تواند رمز عبور اصلی شما را بازیابی کند.\nپایگاه‌های داده ما رمزگذاری شده‌اند. تمام ارتباطات کاربران با ارزوک از طریق پروتکل HTTPS انجام می‌شود و ایمیل‌های تراکنشی نیز با TLS رمزگذاری می‌شوند.")
-    SectionTitle("به‌روزرسانی سیاست حریم خصوصی")
-    Body("این سیاست حریم خصوصی از تاریخ «آخرین به‌روزرسانی» در پایین صفحه معتبر است. استفاده مستمر شما از پلتفرم ارزوک پس از هر تغییر در سیاست حریم خصوصی، به منزله پذیرش شرایط تجدیدنظرشده است. لطفاً برای هرگونه سؤال با ما تماس بگیرید.")
-    Body("\nآخرین به‌روزرسانی: ۲۳ دسامبر ۲۰۲۰")
+    FaqItem("چه اطلاعاتی جمع‌آوری می‌کنیم و چرا",
+        "ما نام، اطلاعات تماس، تاریخ و زمان ایجاد حساب، آدرس IP و شناسه دستگاه شما را جمع‌آوری می‌کنیم. همچنین رمز عبور هش‌شده شما را در صورت ثبت‌نام از طریق صفحه ثبت‌نام جمع‌آوری می‌کنیم. اگر از ورود اجتماعی (گوگل) استفاده کنید، نام کامل، تصویر پروفایل و اطلاعات تماس شما از ارائه‌دهنده دریافت می‌شود.\nهمچنین اطلاعات بانکی شما و دریافت‌کنندگان پرداخت شما را جمع‌آوری می‌کنیم.")
+    FaqItem("جمع‌آوری و استفاده از اطلاعات شخصی",
+        "ارزوک اطلاعات شخصی شما را برای ارائه خدمات جمع‌آوری می‌کند. به آدرس ایمیل شما برای ارتباط و ارسال ایترنسفر نیاز داریم. همچنین هویت شما را از طریق مدرک شناسایی معتبر تأیید می‌کنیم. این یک الزام FINTRAC است.")
+    FaqItem("افشای اطلاعات شخصی",
+        "ممکن است اطلاعات شخصی شما را در صورت نیاز برای انجام کسب‌وکار با سایر طرف‌ها به اشتراک بگذاریم.")
+    FaqItem("سیاست‌های حفاظت از داده",
+        "برای امنیت حساب شما، رمز عبور هش می‌شود و هیچ‌کس نمی‌تواند رمز عبور اصلی شما را بازیابی کند.\nپایگاه‌های داده ما رمزگذاری شده‌اند. تمام ارتباطات کاربران با ارزوک از طریق پروتکل HTTPS انجام می‌شود و ایمیل‌های تراکنشی نیز با TLS رمزگذاری می‌شوند.")
+    FaqItem("به‌روزرسانی سیاست حریم خصوصی",
+        "این سیاست حریم خصوصی از تاریخ «آخرین به‌روزرسانی» در پایین صفحه معتبر است. استفاده مستمر شما از پلتفرم ارزوک پس از هر تغییر در سیاست حریم خصوصی، به منزله پذیرش شرایط تجدیدنظرشده است. لطفاً برای هرگونه سؤال با ما تماس بگیرید.\n\nآخرین به‌روزرسانی: ۲۳ دسامبر ۲۰۲۰")
 }
 
 @Composable fun TermsFa() {

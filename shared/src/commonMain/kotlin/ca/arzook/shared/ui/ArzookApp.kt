@@ -5,16 +5,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -56,6 +64,7 @@ sealed class Screen {
     data object RateAlert : Screen()
     data object AdminWallet : Screen()
     data object ConfirmDeposit : Screen()
+    data object AdminCompletedTrades : Screen()
     data object Account : Screen()
     data object Settings : Screen()
     data object SettingsPage : Screen()
@@ -125,13 +134,13 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                 if (showChrome) {
                     val logo = when {
                         isFabMenuOpen -> Res.drawable.ic_nav_logo   // disabled state
-                        screen is Screen.Menu -> Res.drawable.ic_nav_logo_white // selected state
+                        screen is Screen.Menu || screen is Screen.Content -> Res.drawable.ic_nav_logo_white // selected state
                         else -> Res.drawable.ic_nav_logo           // normal state
                     }
                     val alpha = if (isFabMenuOpen) 0.4f else 1f
                     NavigationBar(containerColor = Color.White.copy(alpha = alpha)) {
                         NavigationBarItem(
-                            selected = screen is Screen.Account,
+                            selected = screen is Screen.Account || screen is Screen.Profile || screen is Screen.RateAlert || screen is Screen.EWallet || screen is Screen.AdminWallet || screen is Screen.ConfirmDeposit,
                             onClick = {
                                 if (!isFabMenuOpen) {
                                     backStack.clear(); backStack.add(Screen.Account)
@@ -188,7 +197,7 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                             )
                         )
                         NavigationBarItem(
-                            selected = screen is Screen.Menu,
+                            selected = screen is Screen.Menu || screen is Screen.Content,
                             onClick = {
                                 if (!isFabMenuOpen) {
                                     backStack.clear(); backStack.add(Screen.Menu)
@@ -201,7 +210,7 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                                     modifier = Modifier
                                         // Define the exact width and custom height you want for your indicator
                                         .then(
-                                            if (screen is Screen.Menu) {
+                                            if (screen is Screen.Menu || screen is Screen.Content) {
                                                 Modifier
                                                     .size(width = 30.dp, height = 26.dp) // Default Material 3 height is usually ~32dp
                                                     .background(color = ChosenMenu, shape = RoundedCornerShape(12.dp))
@@ -295,11 +304,32 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                         onAddSelling = { navigate(Screen.AddSelling) }
                     )
 
-                    is Screen.Content -> if (s.title == "Learning Videos") HomeScreen(homeViewModel = homeViewModel) else ContentScreen(
+                    is Screen.Content -> if (s.title == "Learning Videos") {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(onClick = { goBack() }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                }
+                                Text("Learning Videos", style = MaterialTheme.typography.titleMedium)
+                            }
+                            HorizontalDivider()
+                            HomeScreen(homeViewModel = homeViewModel)
+                        }
+                    } else ContentScreen(
                         title = s.title,
                         onBack = { goBack() })
 
-                    is Screen.EWallet -> EWalletScreen(deposits = homeViewModel.deposits.collectAsState().value)
+                    is Screen.EWallet -> Column(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { goBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                            Text("e-Wallet", style = MaterialTheme.typography.titleMedium)
+                        }
+                        HorizontalDivider()
+                        EWalletScreen(deposits = homeViewModel.deposits.collectAsState().value)
+                    }
                     is Screen.MyBuying -> MyBuyingScreen(
                         drafts = buyingDrafts, completedTrades = buyingTrades,
                         onAddBuying = { navigate(Screen.AddBuying) },
@@ -330,21 +360,36 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                         homeViewModel = homeViewModel
                     )
 
-                    is Screen.Profile -> if (token.isNullOrEmpty()) navigate(Screen.Login) else ProfileScreen(
-                        user = authViewModel.userDetails.collectAsState().value,
-                        isLoggedIn = !token.isNullOrEmpty(),
-                        authViewModel = authViewModel,
-                        token = token ?: ""
-                    )
+                    is Screen.Profile -> if (token.isNullOrEmpty()) navigate(Screen.Login) else Column(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { goBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                            Text("Profile", style = MaterialTheme.typography.titleMedium)
+                        }
+                        HorizontalDivider()
+                        ProfileScreen(
+                            user = authViewModel.userDetails.collectAsState().value,
+                            isLoggedIn = !token.isNullOrEmpty(),
+                            authViewModel = authViewModel,
+                            token = token ?: ""
+                        )
+                    }
 
-                    is Screen.RateAlert -> if (token.isNullOrEmpty()) navigate(Screen.Login) else RateAlertScreen(
-                        onBack = { goBack() },
-                        token = token ?: "",
-                        homeViewModel = homeViewModel
-                    )
+                    is Screen.RateAlert -> if (token.isNullOrEmpty()) navigate(Screen.Login) else Column(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { goBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                            Text("Rate Alert", style = MaterialTheme.typography.titleMedium)
+                        }
+                        HorizontalDivider()
+                        RateAlertScreen(
+                            onBack = { goBack() },
+                            token = token ?: "",
+                            homeViewModel = homeViewModel
+                        )
+                    }
 
                     is Screen.AdminWallet -> AdminWalletScreen(token = token ?: "")
                     is Screen.ConfirmDeposit -> ConfirmDepositScreen(token = token ?: "")
+                    is Screen.AdminCompletedTrades -> AdminCompletedTradesScreen(token = token ?: "", onBack = { goBack() })
                     is Screen.Account -> AccountScreen(
                         user = authViewModel.userDetails.collectAsState().value,
                         isLoggedIn = !token.isNullOrEmpty(),
@@ -358,6 +403,7 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                         onRateAlert = { navigate(Screen.RateAlert) },
                         onAdminWallet = { navigate(Screen.AdminWallet) },
                         onConfirmDeposit = { navigate(Screen.ConfirmDeposit) },
+                        onAdminCompletedTrades = { navigate(Screen.AdminCompletedTrades) },
                         onOrdering = { navigate(Screen.Ordering) },
                         fromCurrency = fromCurrency,
                         toCurrency = toCurrency,

@@ -256,6 +256,18 @@ class HomeViewModel {
             loadUserData(token)
         }
     }
+    fun updateSellingAdvertised(token: String, draft: ca.arzook.shared.model.TradeItem) {
+        scope.launch { repo.updateSellingAdvertised(token, draft); loadUserData(token) }
+    }
+    fun updateSellingUrgent(token: String, id: String, purposeOfTransaction: String, sourceOfFund: String, urgent: Boolean) {
+        scope.launch { repo.updateSellingUrgent(token, id, purposeOfTransaction, sourceOfFund, urgent); loadUserData(token) }
+    }
+    fun updateBuyingAdvertised(token: String, draft: ca.arzook.shared.model.TradeItem) {
+        scope.launch { repo.updateBuyingAdvertised(token, draft); loadUserData(token) }
+    }
+    fun updateBuyingSmartMatching(token: String, id: String, purposeOfTransaction: String, sourceOfFund: String, smartMatchingEnabled: Boolean) {
+        scope.launch { repo.updateBuyingSmartMatching(token, id, purposeOfTransaction, sourceOfFund, smartMatchingEnabled); loadUserData(token) }
+    }
     fun updateBuyingDraft(token: String, id: String, amount: Double, rate: Double) {
         scope.launch {
             repo.updateBuyingAmount(token, id, amount)
@@ -324,7 +336,11 @@ class HomeViewModel {
     }
 
     fun unlockTrade(token: String, id: String) {
-        scope.launch { repo.unlockTrade(token, id) }
+        println("[HomeVM] unlockTrade called: id=$id")
+        scope.launch {
+            val result = repo.unlockTrade(token, id)
+            println("[HomeVM] unlockTrade result: $result")
+        }
     }
 
     fun buySellTrade(token: String, id: String, onSuccess: () -> Unit = {}) {

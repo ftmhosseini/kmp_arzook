@@ -208,19 +208,13 @@ private fun AdminWalletItemRow(item: DigitalWalletItem) {
             elevation = CardDefaults.cardElevation(4.dp)
         ) {
             Column(modifier = Modifier.background(Cream40).clickable { expanded = !expanded }.padding(12.dp)) {
-//                // Collapsed header
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                             Text(item.userFullName ?: "", fontWeight = FontWeight.Bold)
-                            Text(formatIrr(item.amount.toDouble()), fontWeight = FontWeight.Bold)
-                            Text(formatIrr(item.balance.toDouble()), fontWeight = FontWeight.Bold)
-                    Icon(
-                        imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                        contentDescription = null,
-                    )
+                            Text(formatIrr(item.amount), fontWeight = FontWeight.Bold)
+                            Text(formatIrr(item.balance), fontWeight = FontWeight.Bold)
                 }
 
                 AnimatedVisibility(visible = expanded) {

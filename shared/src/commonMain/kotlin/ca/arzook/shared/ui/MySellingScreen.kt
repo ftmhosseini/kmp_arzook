@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -61,6 +62,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.arzook.shared.model.Payee
@@ -175,7 +178,7 @@ internal fun SellingDraftRow(
         draft.deposited == null -> "e-Transfer"
         draft.buyingCode == null -> "Pending Buyer"
         draft.buyingDraftExchangeDeposited == null -> "Buyer Deposit"
-        draft.eTransferForwarded == null -> "e-Transfer Forward"
+        draft.eTransferForwardedDate == null -> "e-Transfer Forward"
         else -> "e-Transfer Deposit"
     }
 
@@ -217,7 +220,7 @@ internal fun SellingDraftRow(
                     thickness = 2.dp,
                     color = Brown
                 )
-                if ((draft.locked == true || draft.eTransferForwarded == null) && draft.lockExpiresIn != null && status != "e-Transfer Deposit") {
+                if ((draft.locked == true || draft.eTransferForwardedDate == null) && draft.lockExpiresIn != null && status != "e-Transfer Deposit") {
                     Text(
                         text = "${draft.lockExpiresIn}s",
                         color = Color.Red,
@@ -247,6 +250,7 @@ internal fun SellingDraftRow(
         AnimatedVisibility(visible = expanded) {
             var editAmount by remember { mutableStateOf((draft.amount ?: 0.0)) }
             var editRate by remember { mutableStateOf((draft.askingRate ?: 0.0)) }
+            val clipboardManager = LocalClipboardManager.current
 
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Text("Code: ${draft.code ?: ""}", color = GreenSold, fontWeight = FontWeight.Bold)
@@ -263,7 +267,7 @@ internal fun SellingDraftRow(
 
                 Spacer(Modifier.height(8.dp))
 
-                if (draft.isLocked == null || draft.eTransferForwarded == null) {
+                if (draft.isLocked == null || draft.eTransferForwardedDate == null) {
                     EditableField(
                         label = "Amount (${draft.currency})",
                         value = formatCad(editAmount.toDouble()),
@@ -310,7 +314,7 @@ internal fun SellingDraftRow(
                 Text("Payee", color = Brown, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.SpaceBetween) {
                     OutlinedButton(onClick = { payeeDropdownExpanded = true }) {
-                        Text(selectedPayee?.name ?: "Select payee")
+                        Text(selectedPayee?.name ?: draft.payeeName ?: "Select payee")
                     }
                     ArzookDropdownMenu(
                         expanded = payeeDropdownExpanded,
@@ -319,7 +323,14 @@ internal fun SellingDraftRow(
                         payees.forEach { payee ->
                             DropdownMenuItem(
                                 text = { Text(payee.name) },
-                                onClick = { selectedPayee = payee; payeeDropdownExpanded = false }
+                                onClick = { selectedPayee = payee; payeeDropdownExpanded = false;
+                                    if (token.isNotEmpty()) homeViewModel?.updateSellingDraft(
+                                        token, draft.id ?: "",
+                                        editAmount ?: (draft.amount ?: 0.0),
+                                        editRate ?: (draft.askingRate ?: 0.0),
+                                        selectedPayee?.sheba ?: draft.sheba ?: "",
+                                        selectedPayee?.name ?: draft.payeeName ?: ""
+                                    ) }
                             )
                         }
                         HorizontalDivider()
@@ -339,24 +350,73 @@ internal fun SellingDraftRow(
 
 
                 Spacer(Modifier.height(8.dp))
-                Text("YOU SEND", color = Brown, fontWeight = FontWeight.Bold)
-                Text("${formatCad(draft.amount ?: 0.0)} ${draft.currency}")
-                if (!draft.arzookDepositEmail.isNullOrEmpty()) Text("Arzook Deposit Email: ${draft.arzookDepositEmail}")
-                if (!draft.eTransferPassword.isNullOrEmpty()) Text("e-Transfer password: ${draft.eTransferPassword}")
-                Text("YOU GET", color = GreenSold, fontWeight = FontWeight.Bold)
-                Text("${formatIrr((draft.askingRate ?: 0.0) * (draft.amount ?: 0.0))} IRR")
-                if (!draft.sheba.isNullOrEmpty()) Text("Your Sheba: ${draft.sheba}")
-                if (!draft.payeeName.isNullOrEmpty()) Text("Recipient: ${draft.payeeName}")
+                var showSend by remember { mutableStateOf(true) }
+                var showGet by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "YOU SEND",
+                        color = if (showSend) Color.White else Brown,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (showSend) Brown else Color.Transparent)
+                            .clickable { showGet = false; showSend = true }
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                    Text(
+                        "YOU GET",
+                        color = if (showGet) Color.White else GreenSold,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (showGet) GreenSold else Color.Transparent)
+                            .clickable { showSend = false; showGet = true }
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+                AnimatedVisibility(visible = showSend) {
+                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            InfoRow("Amount"," ${formatCad(draft.amount ?: 0.0)} ${draft.currency}")
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString("${draft.amount ?: 0.0}")) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy amount", modifier = Modifier.size(14.dp))
+                            }
+                        }
+                        if (!draft.arzookDepositEmail.isNullOrEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
+                            InfoRow("Arzook Deposit Email",draft.arzookDepositEmail)
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(draft.arzookDepositEmail!!)) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy email", modifier = Modifier.size(14.dp))
+                            }
+                        }
+                        if (!draft.eTransferPassword.isNullOrEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
+                            InfoRow("e-Transfer password",draft.eTransferPassword)
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(draft.eTransferPassword!!)) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy password", modifier = Modifier.size(14.dp))
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            InfoRow("e-Transfer message",draft.code ?: "")
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(draft.code ?: "")) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copy message", modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                }
+                AnimatedVisibility(visible = showGet) {
+                    Column {
+                        InfoRow("Amount", "${formatIrr((draft.askingRate ?: 0.0) * (draft.amount ?: 0.0))} IRR")
+                        InfoRow("Your Sheba",draft.sheba?:"N/A")
+                        InfoRow("Recipient",draft.payeeName ?: "N/A")
+                    }
+                }
 
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     color = Color.Gray
                 )
-                InfoRow(
-                    "Service Rate",
-                    "${formatIrr((draft.exchangeRate ?: 0.0) - (draft.askingRate ?: 0.0))} IRR per ${draft.currency}"
-                )
-                InfoRow("1 ${draft.currency}", "${formatIrr(draft.exchangeRate ?: 0.0)} IRR")
                 if (draft.complianceFee > 0.0) {
                     var showComplianceInfo by remember { mutableStateOf(false) }
                     if (showComplianceInfo) {
@@ -372,11 +432,16 @@ internal fun SellingDraftRow(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         InfoRow("Compliance fee", "${formatIrr(draft.complianceFee)} IRR ")
-                        IconButton(onClick = { showComplianceInfo = true }) {
-                            Icon(imageVector = Icons.Default.Help, contentDescription = null)
+                        IconButton(onClick = { showComplianceInfo = true }, modifier = Modifier.size(24.dp)) {
+                            Icon(imageVector = Icons.Default.Help, contentDescription = null, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
+                InfoRow(
+                    "Service Rate",
+                    "${formatIrr((draft.exchangeRate ?: 0.0) - (draft.askingRate ?: 0.0))} IRR per ${draft.currency}"
+                )
+                InfoRow("1 ${draft.currency}", "${formatIrr(draft.exchangeRate ?: 0.0)} IRR")
                 Spacer(Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -388,9 +453,32 @@ internal fun SellingDraftRow(
                             verticalAlignment = Alignment.Bottom,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
+                            var showPostAlert by remember { mutableStateOf(false) }
+                            if (showPostAlert) {
+                                AlertDialog(
+                                    onDismissRequest = { showPostAlert = false },
+                                    title = { Text("Are you sure you want to make your selling invisible to other customers?") },
+                                    text = { Text("By turning off the \"Post\" slider, others will no longer see your selling.") },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = { showPostAlert = false; advertised = false; if (token.isNotEmpty()) homeViewModel?.updateSellingAdvertised(token, draft.copy(advertised = false)) },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = GreenSold)
+                                        ) { Text("Yes", color = Color.White) }
+                                    },
+                                    dismissButton = {
+                                        TextButton(
+                                            onClick = { showPostAlert = false },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = Brown)
+                                        ) { Text("No", color = Color.White) }
+                                    }
+                                )
+                            }
                             Switch(
                                 checked = advertised,
-                                onCheckedChange = { advertised = it },
+                                onCheckedChange = {
+                                    if (!it) showPostAlert = true
+                                    else { advertised = true; if (token.isNotEmpty()) homeViewModel?.updateSellingAdvertised(token, draft.copy(advertised = true)) }
+                                },
                                 modifier = Modifier.scale(0.5f).size(20.dp),
                                 colors = SwitchDefaults.colors(
                                     checkedTrackColor = ChosenMenu,      // The background when ON
@@ -402,9 +490,32 @@ internal fun SellingDraftRow(
                             verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
+                            var showUrgentAlert by remember { mutableStateOf(false) }
+                            if (showUrgentAlert) {
+                                AlertDialog(
+                                    onDismissRequest = { showUrgentAlert = false },
+                                    title = { Text("Are you sure you want to make your selling URGENT?") },
+                                    text = { Text("Only buyers with sufficient funds in their e-Wallet can lock urgent Sellings.") },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = { showUrgentAlert = false; urgent = true; if (token.isNotEmpty()) homeViewModel?.updateSellingUrgent(token, draft.id ?: "", draft.purposeOfTransaction ?: "", draft.sourceOfFund ?: "", true) },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = GreenSold)
+                                        ) { Text("Yes", color = Color.White) }
+                                    },
+                                    dismissButton = {
+                                        TextButton(
+                                            onClick = { showUrgentAlert = false },
+                                            colors = ButtonDefaults.textButtonColors(containerColor = Brown)
+                                        ) { Text("No", color = Color.White) }
+                                    }
+                                )
+                            }
                             Switch(
                                 checked = urgent,
-                                onCheckedChange = { urgent = it },
+                                onCheckedChange = {
+                                    if (it) showUrgentAlert = true
+                                    else { urgent = false; if (token.isNotEmpty()) homeViewModel?.updateSellingUrgent(token, draft.id ?: "", draft.purposeOfTransaction ?: "", draft.sourceOfFund ?: "", false) }
+                                },
                                 modifier = Modifier.scale(0.5f).size(20.dp),
                                 colors = SwitchDefaults.colors(checkedTrackColor = ChosenMenu)
                             )
@@ -412,51 +523,73 @@ internal fun SellingDraftRow(
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+//                        ArzookButton(
+//                            onClick = {
+//                                if (token.isNotEmpty()) homeViewModel?.updateSellingDraft(
+//                                    token, draft.id ?: "",
+//                                    editAmount ?: (draft.amount ?: 0.0),
+//                                    editRate ?: (draft.askingRate ?: 0.0),
+//                                    selectedPayee?.sheba ?: draft.sheba ?: "",
+//                                    selectedPayee?.name ?: draft.payeeName ?: ""
+//                                )
+//                            },
+//                            containerColor = GreenSold,
+//                            contentColor = Color.White,
+//                            modifier = Modifier
+//                        ) { Text("Update", color = Color.White) }
+                        var showDeleteConfirm by remember { mutableStateOf(false) }
+                        var showDepositedAlert by remember { mutableStateOf(false) }
+                        var showETransferAlert by remember { mutableStateOf(false) }
+                        if (showDepositedAlert) {
+                            AlertDialog(
+                                onDismissRequest = { showDepositedAlert = false },
+                                title = { Text("Cannot Delete") },
+                                text = { Text("Please make it unposted first, then delete the trade.") },
+                                confirmButton = {
+                                    TextButton(onClick = { showDepositedAlert = false }) { Text("OK") }
+                                }
+                            )
+                        }
+                        if (showETransferAlert) {
+                            AlertDialog(
+                                onDismissRequest = { showETransferAlert = false },
+                                title = { Text("Cannot Delete") },
+                                text = { Text("Please cancel the e-Transfer from your banking account.") },
+                                confirmButton = {
+                                    TextButton(onClick = { showETransferAlert = false }) { Text("OK") }
+                                }
+                            )
+                        }
+                        if (showDeleteConfirm) {
+                            AlertDialog(
+                                onDismissRequest = { showDeleteConfirm = false },
+                                title = { Text("Delete Selling") },
+                                text = { Text("Are you sure you want to delete this selling draft? This action cannot be undone.") },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        showDeleteConfirm = false
+                                        if (token.isNotEmpty()) homeViewModel?.deleteSellingDraft(
+                                            token,
+                                            draft.id ?: "",
+                                            onSuccess = onDeleted
+                                        )
+                                    }) { Text("Delete", color = Color.Red) }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+                                }
+                            )
+                        }
                         ArzookButton(
                             onClick = {
-                                if (token.isNotEmpty()) homeViewModel?.updateSellingDraft(
-                                    token, draft.id ?: "",
-                                    editAmount ?: (draft.amount ?: 0.0),
-                                    editRate ?: (draft.askingRate ?: 0.0),
-                                    selectedPayee?.sheba ?: draft.sheba ?: "",
-                                    selectedPayee?.name ?: draft.payeeName ?: ""
-                                )
+                                if (draft.advertised == true) showDepositedAlert = true
+                                else if (draft.deposited == true) showETransferAlert = true
+                                else showDeleteConfirm = true
                             },
-                            containerColor = GreenSold,
+                            containerColor = Brown,
                             contentColor = Color.White,
                             modifier = Modifier
-                        ) { Text("Update", color = Color.White) }
-                        if (draft.isLocked == null || draft.eTransferForwarded == false) {
-                            var showDeleteConfirm by remember { mutableStateOf(false) }
-                            if (showDeleteConfirm) {
-                                AlertDialog(
-                                    onDismissRequest = { showDeleteConfirm = false },
-                                    title = { Text("Delete Selling") },
-                                    text = { Text("Are you sure you want to delete this selling draft? This action cannot be undone.") },
-                                    confirmButton = {
-                                        TextButton(onClick = {
-                                            showDeleteConfirm = false
-                                            if (token.isNotEmpty()) homeViewModel?.deleteSellingDraft(
-                                                token,
-                                                draft.id ?: "",
-                                                onSuccess = onDeleted
-                                            )
-                                        }) { Text("Delete", color = Color.Red) }
-                                    },
-                                    dismissButton = {
-                                        TextButton(onClick = {
-                                            showDeleteConfirm = false
-                                        }) { Text("Cancel") }
-                                    }
-                                )
-                            }
-                            ArzookButton(
-                                onClick = { showDeleteConfirm = true },
-                                containerColor = Brown,
-                                contentColor = Color.White,
-                                modifier = Modifier
-                            ) { Text("Delete", color = Color.White) }
-                        }
+                        ) { Text("Delete", color = Color.White) }
                     }
                 }
                 HorizontalDivider(thickness = 2.dp)
@@ -492,7 +625,7 @@ internal fun CompletedSellingRow(trade: TradeItem, token: String) {
 //            verticalAlignment = Alignment.CenterVertically
         ) {
             (trade.sellingCode ?: trade.buyingCode)?.let { Text(it) }
-            Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency}")
+            Text("$${formatCad(trade.amount ?: 0.0)} ${trade.currency?:"CAD"}")
             Text(trade.exchangeDepositedTime?.take(10) ?: "")
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,

@@ -167,6 +167,7 @@ class ArzookRepositoryImpl(
         }
         val body = response.bodyAsText()
         println("[lockTrade] status=${response.status} body=$body")
+        if (response.status.value == 409) throw Exception("This trade is currently locked by another user. Please try again shortly.")
         if (!response.status.isSuccess()) throw Exception("Lock failed: ${response.status} $body")
         kotlinx.serialization.json.Json { ignoreUnknownKeys = true; coerceInputValues = true }.decodeFromString(LockedTrade.serializer(), body)
     }
@@ -174,8 +175,8 @@ class ArzookRepositoryImpl(
     override suspend fun unlockTrade(token: String, id: String): Result<Unit> = safeCall {
         client.post("$baseUrl/api/trading/unlock") {
             header(HttpHeaders.Authorization, token.bearer())
-            contentType(ContentType.Application.Json)
-            setBody(mapOf("id" to id))
+            contentType(ContentType.Text.Plain)
+            setBody(id)
         }
         Unit
     }
@@ -382,6 +383,62 @@ class ArzookRepositoryImpl(
             header(HttpHeaders.Authorization, token.bearer())
             contentType(ContentType.Application.Json)
             setBody(ca.arzook.shared.model.UpdateSellingPayeeRequest(id = id, sheba = sheba, payeeName = payeeName))
+        }
+        Unit
+    }
+
+//    override suspend fun updateSellingAdvertised(
+//        token: String, id: String, advertised: Boolean): Result<Unit> = safeCall {
+//        client.put("$baseUrl/api/sellings/update-advertised/$id") {
+//            header(HttpHeaders.Authorization, token.bearer())
+//            contentType(ContentType.Application.Json)
+//            setBody(mapOf("advertised" to advertised))
+//        }
+//        Unit
+//    }
+    override suspend fun updateSellingAdvertised(token: String, draft: ca.arzook.shared.model.TradeItem): Result<Unit> = safeCall {
+        val json = kotlinx.serialization.json.Json { explicitNulls = true }
+        val body = json.encodeToString(ca.arzook.shared.model.TradeItem.serializer(), draft)
+        client.put("$baseUrl/api/sellings/advertised") {
+            header(HttpHeaders.Authorization, token.bearer())
+            setBody(io.ktor.http.content.TextContent(body, ContentType.Application.Json))
+        }
+        Unit
+    }
+
+    override suspend fun updateSellingUrgent(token: String, id: String, purposeOfTransaction: String, sourceOfFund: String, urgent: Boolean): Result<Unit> = safeCall {
+        val body = """{"purposeOfTransaction":"$purposeOfTransaction","sourceOfFund":"$sourceOfFund","urgent":$urgent}"""
+        client.put("$baseUrl/api/sellings/metadata/$id") {
+            header(HttpHeaders.Authorization, token.bearer())
+            setBody(io.ktor.http.content.TextContent(body, ContentType.Application.Json))
+        }
+        Unit
+    }
+
+    override suspend fun updateBuyingAdvertised(token: String, draft: ca.arzook.shared.model.TradeItem): Result<Unit> = safeCall {
+        val json = kotlinx.serialization.json.Json { explicitNulls = true }
+        val body = json.encodeToString(ca.arzook.shared.model.TradeItem.serializer(), draft)
+        client.put("$baseUrl/api/buyings/advertised") {
+            header(HttpHeaders.Authorization, token.bearer())
+            setBody(io.ktor.http.content.TextContent(body, ContentType.Application.Json))
+        }
+        Unit
+    }
+
+//    override suspend fun updateBuyingAdvertised(token: String, id: String, advertised: Boolean): Result<Unit> = safeCall {
+//        client.put("$baseUrl/api/buyings/update-advertised/$id") {
+//            header(HttpHeaders.Authorization, token.bearer())
+//            contentType(ContentType.Application.Json)
+//            setBody(mapOf("advertised" to advertised))
+//        }
+//        Unit
+//    }
+
+    override suspend fun updateBuyingSmartMatching(token: String, id: String, purposeOfTransaction: String, sourceOfFund: String, smartMatchingEnabled: Boolean): Result<Unit> = safeCall {
+        val body = """{"purposeOfTransaction":"$purposeOfTransaction","sourceOfFund":"$sourceOfFund","smartMatchingEnabled":$smartMatchingEnabled}"""
+        client.put("$baseUrl/api/buyings/metadata/$id") {
+            header(HttpHeaders.Authorization, token.bearer())
+            setBody(io.ktor.http.content.TextContent(body, ContentType.Application.Json))
         }
         Unit
     }
@@ -600,6 +657,18 @@ class ArzookRepositoryImpl(
             header(HttpHeaders.Authorization, token.bearer())
         }
         Unit
+    }
+
+    override suspend fun getAdminBuyingTrades(token: String): Result<List<TradeItem>> = safeCall {
+        client.get("$baseUrl/api/admin/buying-trades") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
+    }
+
+    override suspend fun getAdminSellingTrades(token: String): Result<List<TradeItem>> = safeCall {
+        client.get("$baseUrl/api/admin/selling-trades") {
+            header(HttpHeaders.Authorization, token.bearer())
+        }.body()
     }
 
     private fun contentTypeFromFileName(fileName: String): String {

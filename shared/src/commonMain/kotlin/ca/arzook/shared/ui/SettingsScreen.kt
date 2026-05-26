@@ -1,5 +1,6 @@
 package ca.arzook.shared.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,11 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import arzook.shared.generated.resources.Res
+import arzook.shared.generated.resources.arzook_logo
+import org.jetbrains.compose.resources.painterResource
 
 val ALL_CURRENCIES = listOf("CAD", "IRR", "USD")
 
 private val MENU_ITEMS = listOf(
-    "Learning Videos",
+//    "Learning Videos",
     "How It Works",
     "About Us",
     "FAQ",
@@ -122,7 +126,19 @@ fun SettingsScreen(
 
 @Composable
 fun MenuScreen(onNavigate: (String) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(Res.drawable.arzook_logo),
+                contentDescription = "Arzook",
+                modifier = Modifier.height(40.dp)
+            )
+        }
+        HorizontalDivider()
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(MENU_ITEMS) { item ->
             Row(
                 modifier = Modifier
@@ -137,5 +153,6 @@ fun MenuScreen(onNavigate: (String) -> Unit) {
             }
             HorizontalDivider()
         }
+    }
     }
 }

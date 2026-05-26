@@ -116,6 +116,84 @@ MainActivity (Android) / iOSApp.swift (iOS)
 
 ---
 
+## Features & Functionality
+
+### Authentication
+| Feature | Description |
+|---------|-------------|
+| Login (email/password) | `POST api/auth/login` |
+| Google Sign-In | `POST api/auth/social-login` with Google ID token |
+| Register | `POST api/auth/register` with name, email, password |
+| Logout | Clears token from DataStore |
+
+### Profile Management
+| Feature | Description |
+|---------|-------------|
+| View profile | `GET api/profile/me` |
+| Update profile | `PUT api/profile` (phone, birthday, address, city, etc.) |
+| Upload Photo ID | `POST api/profile/photo-id` (multipart) |
+| Upload Utility Bill | `POST api/profile/utility-bill` (multipart) |
+
+### Trading
+| Feature | Description |
+|---------|-------------|
+| Browse trades | Public CAD/USD trade listings |
+| Watch trade | `POST api/trading/watch/{id}` |
+| Unwatch trade | `POST api/trading/unwatch/{id}` |
+| Lock trade | `POST api/trading/lock` → returns LockedTrade with countdown |
+| Confirm buy/sell | `POST api/trading/buy` or `api/trading/sell` |
+| Service rate | `POST api/trading/buying-taker-service-rate` / `selling-taker-service-rate` |
+
+### My Trades (Selling)
+| Feature | Endpoint | Notes |
+|---------|----------|-------|
+| Create selling | `POST api/sellings` | With amount, rate, currency, urgent |
+| Edit amount | `PUT api/sellings/update-amount/{id}` | |
+| Edit rate | `PUT api/sellings/update-asking-rate/{id}` | |
+| Edit payee | `PUT api/sellings/update-payee-bank-info` | |
+| Toggle Post | `PUT api/sellings/advertised` | Full TradeItem body with `advertised` toggled |
+| Toggle Urgent | `PUT api/sellings/metadata/{id}` | Body: `{purposeOfTransaction, sourceOfFund, urgent}` |
+| Delete | `DELETE api/sellings/{id}` | Only if unposted AND not deposited |
+
+### My Trades (Buying)
+| Feature | Endpoint | Notes |
+|---------|----------|-------|
+| Create buying | `POST api/buyings` | With amount, rate, currency, smartMatching |
+| Edit amount | `PUT api/buyings/update-amount/{id}` | |
+| Edit rate | `PUT api/buyings/update-asking-rate/{id}` | |
+| Toggle Post | `PUT api/buyings/advertised` | Full TradeItem body with `advertised` toggled |
+| Toggle Smart Matching | `PUT api/buyings/metadata/{id}` | Body: `{purposeOfTransaction, sourceOfFund, smartMatchingEnabled}` |
+| Delete | `DELETE api/buyings/{id}` | Only if unposted |
+
+### Delete Rules
+| Condition | Behavior |
+|-----------|----------|
+| `advertised == true` | Alert: "Please make it unposted first, then delete the trade." |
+| `deposited == true` (selling only) | Alert: "Please cancel the e-Transfer from your banking account." |
+| `advertised == false && deposited == false` | Confirm dialog → delete |
+
+### Toggle Confirmation Alerts
+| Toggle | Direction | Alert Message |
+|--------|-----------|---------------|
+| Post (selling) | OFF | "Are you sure you want to make your selling invisible to other customers?" |
+| Post (buying) | OFF | "Are you sure you want to make your buying invisible to other customers?" |
+| Urgent (selling) | ON | "Are you sure you want to make your selling URGENT? Only buyers with sufficient funds..." |
+| Smart Matching (buying) | OFF | "Are you sure you want to disable Smart Matching? Smart Matching is a great feature..." |
+
+### E-Wallet
+| Feature | Endpoint |
+|---------|----------|
+| Balance | `GET api/digital-wallet` |
+| Deposit history | `GET api/digital-wallet/items` |
+
+### Rate Alerts
+| Feature | Endpoint |
+|---------|----------|
+| Get alerts | `GET api/rate-alerts` |
+| Save alerts | `POST api/rate-alerts` |
+
+---
+
 ## Screen Map
 
 | Screen | Class | Auth Required |
@@ -164,6 +242,17 @@ Manages all app data. Created once in `ArzookApp` with `remember { HomeViewModel
 | `walletStatus` | `StateFlow<WalletStatus?>` | Balance + hold credit |
 | `currentRate` | `StateFlow<CurrentRate?>` | Exchange rate + offsets |
 | `lockedTrades` | `StateFlow<Map<String,LockedTrade>>` | Locked trade bank info |
+| `serviceRates` | `StateFlow<Map<String,Double>>` | Per-trade service rates |
+
+Key functions:
+- `watchTrade()`, `unwatchTrade()`
+- `lockTrade()`, `unlockTrade()`, `confirmTrade()`
+- `updateSellingDraft()`, `updateBuyingDraft()`
+- `updateSellingAdvertised()`, `updateSellingUrgent()`
+- `updateBuyingAdvertised()`, `updateBuyingSmartMatching()`
+- `deleteBuyingDraft()`, `deleteSellingDraft()`
+- `loadServiceRate()`, `loadUserData()`
+- `connectWebSocket()`, `disconnectWebSocket()`
 
 ---
 
@@ -181,7 +270,6 @@ Manages all app data. Created once in `ArzookApp` with `remember { HomeViewModel
 | `api/profile/me` | GET | Yes | User profile |
 | `api/digital-wallet` | GET | Yes | Wallet balance |
 | `api/digital-wallet/items` | GET | Yes | Deposit history |
-| `api/trading/watch` | GET | Yes | Watch list |
 | `api/trading/watch/{id}` | POST | Yes | Watch trade |
 | `api/trading/unwatch/{id}` | POST | Yes | Unwatch trade |
 | `api/trading/lock` | POST | Yes | Lock + get bank info |
@@ -189,65 +277,22 @@ Manages all app data. Created once in `ArzookApp` with `remember { HomeViewModel
 | `api/trading/selling-taker-service-rate` | POST | Yes | Service rate (selling) |
 | `api/buyings/buying-drafts` | GET | Yes | My buying drafts |
 | `api/buyings` | POST | Yes | Create buying draft |
+| `api/buyings/update-amount/{id}` | PUT | Yes | Edit buying amount |
+| `api/buyings/update-asking-rate/{id}` | PUT | Yes | Edit buying rate |
+| `api/buyings/advertised` | PUT | Yes | Toggle buying post |
+| `api/buyings/metadata/{id}` | PUT | Yes | Toggle smart matching |
+| `api/buyings/{id}` | DELETE | Yes | Delete buying draft |
 | `api/sellings` | GET | Yes | My selling drafts |
 | `api/sellings` | POST | Yes | Create selling draft |
+| `api/sellings/update-amount/{id}` | PUT | Yes | Edit selling amount |
+| `api/sellings/update-asking-rate/{id}` | PUT | Yes | Edit selling rate |
+| `api/sellings/update-payee-bank-info` | PUT | Yes | Edit selling payee |
+| `api/sellings/advertised` | PUT | Yes | Toggle selling post |
+| `api/sellings/metadata/{id}` | PUT | Yes | Toggle urgent |
+| `api/sellings/{id}` | DELETE | Yes | Delete selling draft |
 | `api/trades/buying-trades` | GET | Yes | Completed buying |
 | `api/trades/selling-trades` | GET | Yes | Completed selling |
 | `api/payees` | GET | Yes | User payees |
-
----
-
-## Adding a New Screen
-
-1. Add to `Screen` sealed class in `ArzookApp.kt`:
-```kotlin
-data object Notifications : Screen()
-```
-
-2. Add a `when` branch in `ArzookApp.kt`:
-```kotlin
-is Screen.Notifications -> NotificationsScreen(onBack = { screen = Screen.Home })
-```
-
-3. Create `NotificationsScreen.kt` in `shared/ui/`.
-
----
-
-## Adding a New API Endpoint
-
-1. `ArzookRepository.kt` — add to interface:
-```kotlin
-suspend fun getNotifications(token: String): Result<List<Notification>>
-```
-
-2. `model/` — add data class:
-```kotlin
-@Serializable
-data class Notification(val id: String, val message: String)
-```
-
-3. `ArzookRepositoryImpl.kt` — implement:
-```kotlin
-override suspend fun getNotifications(token: String): Result<List<Notification>> = safeCall {
-    client.get("$baseUrl/api/notifications") {
-        header(HttpHeaders.Authorization, token.bearer())
-    }.body()
-}
-```
-
-4. `HomeViewModel.kt` — add StateFlow + call:
-```kotlin
-private val _notifications = MutableStateFlow<List<Notification>>(emptyList())
-val notifications: StateFlow<List<Notification>> = _notifications.asStateFlow()
-
-// in loadUserData():
-scope.launch {
-    when (val r = repo.getNotifications(token)) {
-        is Result.Success -> _notifications.value = r.data
-        is Result.Error -> println("[HomeVM] notifications error: ${r.message}")
-    }
-}
-```
 
 ---
 
@@ -258,6 +303,27 @@ scope.launch {
 | Dark Green | `status != null` (completed) |
 | Green | `deposited == true` (ready to trade) |
 | Cream | `deposited == null` (open listing) |
+
+---
+
+## Confirm Dialog Info
+
+### Buying (locking a selling trade)
+- YOU SEND: IRR amount (`exchangeRate × amount`)
+- YOU GET: CAD/USD amount
+- Arzook Recipient, Sheba, e-Transfer to, Deposit Id, e-Transfer password
+- Exchange rate, Service Rate, Compliance Fee
+
+### Selling (locking a buying trade)
+- YOU SEND: CAD/USD amount
+- YOU GET: IRR amount (`askingRate × amount`)
+- e-Transfer to (user's email), e-Transfer password: N/A
+- Exchange rate, Service Rate, Total Amount, Compliance Fee, Net Payout
+
+### Rate Calculation
+- Selling: `askingRate = exchangeRate - serviceRate`
+- Buying: `askingRate = exchangeRate + serviceRate`
+- Compliance fee comes from the lock response, not the trade
 
 ---
 
@@ -274,10 +340,22 @@ scope.launch {
 | Old Gradle daemon still running | `./gradlew --stop` + delete `.gradle/configuration-cache` |
 | Watch list always empty | `WatchItem.amount` must be `Double`, not `Int` |
 | `safeCall` silently fails for Unit returns | Add explicit `Unit` at end of block |
-| Lock trade returns error | Use `POST api/trading/lock` with `{"id":"..."}` body |
+| Lock trade returns error | Use `POST api/trading/lock` with raw string ID body |
 | Service rate not showing | Body must be raw `Double`, not `{"amount": ...}` |
 | Profile loading forever | Endpoint is `api/digital-wallet`, not `api/wallet/status` |
 | City/address crash on deserialization | Use `JsonElement?` for fields that can be string or `{}` |
+| Toggle not smooth | Use `derivedStateOf` for filtered lists; avoid `Modifier.scale()` on Switch |
+| Serialization of Map<String,Any> fails | Use `TextContent(jsonString, ContentType.Application.Json)` for raw JSON |
+
+---
+
+## Running Tests
+
+```bash
+./gradlew :shared:allTests
+```
+
+Tests cover: formatting, serialization, auth models, trade items, locked trades, watch items, payees, rate alerts, wallet status, promo codes, toggle business logic, service rate calculations, and delete rules.
 
 ---
 

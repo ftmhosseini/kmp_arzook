@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CheckboxColors
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -256,7 +258,7 @@ fun UserInfoSection(
     token: String = ""
 ) {
     val expiryDate = draftData.photoIdExpiryDate ?: user.photoIdExpiryDate
-    val expiryColor = expiryDate?.let { if (isDateExpired(it)) Color.Red else GreenDark } ?: Color.Gray
+    val expiryColor = expiryDate?.let { if (isDateExpired(it)) Brown else Green } ?: Brown
 
     Column(
         modifier = Modifier
@@ -274,9 +276,7 @@ fun UserInfoSection(
             var selectedBank by remember { mutableStateOf("") }
             var bankExpanded by remember { mutableStateOf(false) }
 //            InfoRow("Seller Id", user.id)
-            InfoRow("Seller Name", "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim())
-            InfoRow("Seller Email", user.email)
-            InfoRow("Seller Phone", user.phoneNumber ?: "-")
+            UserInfoCard(user = user, expiryDate = expiryDate)
             Spacer(Modifier.height(6.dp))
             InfoRow("Created at", draftData.createdTime ?: "-")
             InfoRow("Amount", draftData.amount?.let { formatCad(it) } ?: "-")
@@ -310,10 +310,10 @@ fun UserInfoSection(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Photo id expires on")
-                Text(expiryDate ?: "-", color = expiryColor)
-            }
+//            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+//                Text("Photo id expires on")
+//                Text(expiryDate ?: "-", color = expiryColor)
+//            }
 
             Spacer(Modifier.height(8.dp))
 
@@ -351,12 +351,8 @@ fun UserInfoSection(
                 }
             }
 
-            // Buying Details
             InfoRow("Code", draftData.code ?: "-")
-            InfoRow("Buyer Name", "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim())
-            InfoRow("Buyer Email", user.email)
-            InfoRow("Buyer Phone", user.phoneNumber ?: "-")
-            InfoRow("Deposit Id", user.customerDepositId?.toString() ?: "-")
+            UserInfoCard(user = user, expiryDate = expiryDate)
             InfoRow("Created at", draftData.createdTime ?: "-")
             InfoRow("Amount", draftData.amount?.let { formatCad(it) } ?: "-")
             InfoRow("Asking Rate (IRR)", draftData.askingRate?.let { formatIrr(it) } ?: "-")
@@ -422,6 +418,36 @@ private fun PayeeEditForm(draftData: TradeItem, token: String) {
     }
 }
 
+@Composable
+private fun UserInfoCard(user: AuthenticatedData, expiryDate: String?) {
+    var expanded by remember { mutableStateOf(false) }
+    val hasValidPhoto = expiryDate != null && !isDateExpired(expiryDate)
+    val cardColor = if (hasValidPhoto) GreenSold else Brown
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(10.dp)
+        ) {
+            Text(
+                "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim(),
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            if (expanded) {
+                Spacer(Modifier.height(4.dp))
+                Text("Email: ${user.email}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                Text("Phone: ${user.phoneNumber ?: "-"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                Text("Deposit Id: ${user.customerDepositId ?: "-"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                Text("Photo ID expires on: ${expiryDate ?: "-"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
 /** Returns true if the date string (e.g. "Sep 30, 2029") is in the past. */
 private fun isDateExpired(dateStr: String): Boolean {
     return try {
@@ -445,9 +471,9 @@ private fun isDateExpired(dateStr: String): Boolean {
 private fun BuyerAdminActionsSection(draftData: TradeItem, token: String) {
     val scope = rememberCoroutineScope()
     var deposited by remember { mutableStateOf(draftData.deposited == true) }
-    var eTransferForwarded by remember { mutableStateOf(draftData.eTransferForwarded == true) }
+    var eTransferForwarded by remember { mutableStateOf(draftData.eTransferForwardedDate != null) }
     var eTransferForwardedDate by remember { mutableStateOf(draftData.eTransferForwardedDate) }
-    var exchangeDeposited by remember { mutableStateOf(draftData.buyingDraftExchangeDeposited == true) }
+    var exchangeDeposited by remember { mutableStateOf(draftData.buyingDraftExchangeDeposited == true || draftData.exchangeDepositedDate != null) }
     var actionResult by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
 
@@ -463,8 +489,6 @@ private fun BuyerAdminActionsSection(draftData: TradeItem, token: String) {
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
 //        Text("Admin Actions", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-
-        draftData.depositedDate?.let { InfoRow("Deposited on", it) }
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
             deposited = !deposited
@@ -514,6 +538,8 @@ private fun BuyerAdminActionsSection(draftData: TradeItem, token: String) {
                 )
             }
         }
+
+        draftData.depositedDate?.let { InfoRow("e-Transfer sent on", utcToLocal(it)) }
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
             exchangeDeposited = !exchangeDeposited

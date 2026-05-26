@@ -183,7 +183,7 @@ fun AddSellingBuyingScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.weight(1f)
             )
-            if (suggestedBase != null) {
+            if (suggestedBase != null && currency == "CAD") {
                 Column(horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy((-4).dp)) {
                     ArzookButton(
@@ -485,6 +485,10 @@ fun AddSellingBuyingScreen(
                             "Password: ${createdDraft!!.eTransferPassword}",
                             fontWeight = FontWeight.Bold
                         )
+                    Text(
+                        "Message: ${createdDraft!!.code}",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             confirmButton = {
