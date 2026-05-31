@@ -2,11 +2,16 @@ package ca.arzook.shared.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DatePicker
@@ -20,7 +25,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +43,7 @@ import ca.arzook.shared.model.DigitalWalletItem
 @Composable
 fun EWalletScreen(
     deposits: List<DigitalWalletItem>,
+    onBack: () -> Unit
 ) {
     val scrollState = rememberScrollState()
     var showSearch by remember { mutableStateOf(false) }
@@ -42,6 +52,16 @@ fun EWalletScreen(
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker by remember { mutableStateOf(false) }
 
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowLeft, contentDescription = "Back")
+        }
+        Text("e-Wallet", style = MaterialTheme.typography.titleMedium)
+    }
+    HorizontalDivider()
     if (showFromPicker) {
         val datePickerState = rememberDatePickerState()
         DatePickerDialog(
@@ -87,8 +107,9 @@ fun EWalletScreen(
 
     Column(
         modifier = Modifier
+            .padding(16.dp)
             .background(Cream40)
-            .verticalScroll(scrollState)
+            .verticalScroll(scrollState),
     ) {
         // Balance + deposit button
         Column(
@@ -96,23 +117,16 @@ fun EWalletScreen(
                 .fillMaxWidth()
                 .padding(16.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Cream80)
-                .padding(16.dp),
+                .background(Cream80),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(modifier = Modifier.fillMaxWidth(),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
-            ){
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Current Balance: ", fontWeight = FontWeight.Bold)
-                Text(
-                    text = formatIrr(deposits.firstOrNull()?.balance ?: 0.0),
-                    color = if((deposits.firstOrNull()?.balance ?: 0.0) > 0.0) Green else Brown
-                )
-                Text(" IRR")
-            }
-            Icon(Icons.Default.Search, contentDescription = null,
-                modifier = Modifier.clickable { showSearch = !showSearch })
+            ) {
+                InfoRow("Current Balance", "${formatIrr(deposits.firstOrNull()?.balance ?: 0.0)} IRR")
+                Icon(Icons.Default.Search, contentDescription = null,
+                    modifier = Modifier.clickable { showSearch = !showSearch })
             }
 
             if (showSearch) {
@@ -129,7 +143,10 @@ fun EWalletScreen(
                         readOnly = true,
                         trailingIcon = {
                             IconButton(onClick = { showFromPicker = true }) {
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Pick date")
+                                Icon(
+                                    Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Pick date"
+                                )
                             }
                         }
                     )
@@ -142,7 +159,10 @@ fun EWalletScreen(
                         readOnly = true,
                         trailingIcon = {
                             IconButton(onClick = { showToPicker = true }) {
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Pick date")
+                                Icon(
+                                    Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Pick date"
+                                )
                             }
                         }
                     )
@@ -174,7 +194,10 @@ fun EWalletScreen(
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = Color.Gray)
             filteredDeposits.forEach { deposit ->
                 DepositRow(deposit)
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = Color.Gray)
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = Color.Gray
+                )
             }
         }
     }
@@ -191,19 +214,19 @@ private fun DepositRow(deposit: DigitalWalletItem) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f).padding(start = 16.dp)) {
-            Text(deposit.code ?: "", fontWeight = FontWeight.Bold)
+            Text(deposit.code ?: "", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(deposit.date, style = MaterialTheme.typography.bodySmall)
             Text(deposit.description ?: "", style = MaterialTheme.typography.bodySmall)
             Text(
                 text = "${if (deposit.code?.startsWith('B') == true) "-" else ""}${formatIrr(deposit.amount)}",
                 color = if (deposit.code?.startsWith('B') == true) Brown else GreenSold,
                 fontWeight = FontWeight.Bold,
-//            modifier = Modifier.weight(0.3f)
+                fontSize = 14.sp
             )
         }
-        
+
         Column(Modifier.weight(1f)) {
-            Text(formatIrr(deposit.balance))
+            Text(formatIrr(deposit.balance), fontSize = 14.sp)
             Text("balance", style = MaterialTheme.typography.bodySmall)
         }
     }

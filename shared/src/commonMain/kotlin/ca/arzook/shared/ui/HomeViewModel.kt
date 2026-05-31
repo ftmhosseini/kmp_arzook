@@ -19,6 +19,9 @@ class HomeViewModel {
     private val _aveRates = MutableStateFlow<List<AveRates>>(emptyList())
     val aveRates: StateFlow<List<AveRates>> = _aveRates.asStateFlow()
 
+    private val _publicCompliance = MutableStateFlow<PublicCompliance?>(null)
+    val publicCompliance: StateFlow<PublicCompliance?> = _publicCompliance.asStateFlow()
+
     private val _cadTrades = MutableStateFlow<List<TradeItem>>(emptyList())
     val cadTrades: StateFlow<List<TradeItem>> = _cadTrades.asStateFlow()
 
@@ -38,10 +41,10 @@ class HomeViewModel {
     val currentRate: StateFlow<CurrentRate?> = _currentRate.asStateFlow()
 
     private val _buyingServiceRate = MutableStateFlow<Double?>(null)
-    val buyingServiceRate: StateFlow<Double?> = _buyingServiceRate.asStateFlow()
+//    val buyingServiceRate: StateFlow<Double?> = _buyingServiceRate.asStateFlow()
 
     private val _sellingServiceRate = MutableStateFlow<Double?>(null)
-    val sellingServiceRate: StateFlow<Double?> = _sellingServiceRate.asStateFlow()
+//    val sellingServiceRate: StateFlow<Double?> = _sellingServiceRate.asStateFlow()
 
     private val _buyingDrafts = MutableStateFlow<List<TradeItem>>(emptyList())
     val buyingDrafts: StateFlow<List<TradeItem>> = _buyingDrafts.asStateFlow()
@@ -62,11 +65,14 @@ class HomeViewModel {
     val rateAlert: StateFlow<RateAlert?> = _rateAlert.asStateFlow()
 
     private val _lockedTrades = MutableStateFlow<Map<String, LockedTrade>>(emptyMap())
-    val lockedTrades: StateFlow<Map<String, LockedTrade>> = _lockedTrades.asStateFlow()
+//    val lockedTrades: StateFlow<Map<String, LockedTrade>> = _lockedTrades.asStateFlow()
 
     // tradeId -> service rate
     private val _serviceRates = MutableStateFlow<Map<String, Double>>(emptyMap())
     val serviceRates: StateFlow<Map<String, Double>> = _serviceRates.asStateFlow()
+
+    private val _isAdmin = MutableStateFlow(false)
+    val isAdmin: StateFlow<Boolean> = _isAdmin.asStateFlow()
 
     init {
         scope.launch {
@@ -85,6 +91,15 @@ class HomeViewModel {
             when (val r = repo.getUSDTradesList()) {
                 is Result.Success -> { _usdTrades.value = r.data; println("[HomeVM] usdTrades count=${r.data.size}") }
                 is Result.Error -> println("[HomeVM] getUSDTradesList error: ${r.message}")
+            }
+        }
+        scope.launch {
+            when (val r = repo.getPublicCompliance()) {
+                is Result.Success -> {
+                    println("compliance fee: $_publicCompliance")
+                    _publicCompliance.value = r.data
+                }
+                is Result.Error -> println("[HomeVM] getPublicCompliance error: ${r.message}")
             }
         }
     }
@@ -184,22 +199,28 @@ class HomeViewModel {
                 is Result.Error -> println("[HomeVM] getRateAlerts error: ${r.message}")
             }
         }
+        scope.launch {
+            when (val r = repo.getAdminWalletItems(token)) {
+                is Result.Success -> _isAdmin.value = r.data.isNotEmpty()
+                is Result.Error -> _isAdmin.value = false
+            }
+        }
     }
 
     fun saveRateAlerts(token: String, alert: RateAlert, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
         scope.launch {
             when (val r = repo.saveRateAlerts(token, alert)) {
                 is Result.Success -> { _rateAlert.value = r.data; onSuccess() }
-                is Result.Error -> onError(r.message ?: "Failed to save alert")
+                is Result.Error -> onError(r.message)
             }
         }
     }
 
-    fun getTradeById(id: String?): TradeItem? {
-        if (id == null) return null
-        return _cadTrades.value.find { it.id == id } 
-            ?: _usdTrades.value.find { it.id == id }
-    }
+//    fun getTradeById(id: String?): TradeItem? {
+//        if (id == null) return null
+//        return _cadTrades.value.find { it.id == id }
+//            ?: _usdTrades.value.find { it.id == id }
+//    }
 
 
     fun watchTrade(token: String, id: String) {
@@ -232,8 +253,9 @@ class HomeViewModel {
     fun addPayee(token: String, payee: Payee, onSuccess: (Payee) -> Unit = {}, onError: (String) -> Unit = {}) {
         scope.launch {
             when (val r = repo.addPayee(token, payee)) {
-                is Result.Success -> { _payees.value = _payees.value + r.data; onSuccess(r.data) }
-                is Result.Error -> onError(r.message ?: "Failed to add payee")
+                is Result.Success -> {
+                    _payees.value += r.data; onSuccess(r.data) }
+                is Result.Error -> onError(r.message)
             }
         }
     }
@@ -281,12 +303,12 @@ class HomeViewModel {
             when (val r = repo.lockTrade(token, id)) {
                 is Result.Success -> {
                     println("[HomeVM] lockTrade SUCCESS: expiresIn=${r.data.autoLockExpiresIn}s")
-                    _lockedTrades.value = _lockedTrades.value + (id to r.data)
+                    _lockedTrades.value += (id to r.data)
                     onSuccess(r.data)
                 }
                 is Result.Error -> {
                     println("[HomeVM] lockTrade ERROR: ${r.message}")
-                    _tradeError.value = r.message ?: "Failed to lock trade."
+                    _tradeError.value = r.message
                 }
             }
         }
@@ -328,7 +350,7 @@ class HomeViewModel {
                 }
                 is Result.Error -> {
                     println("[HomeVM] confirmTrade ERROR: ${r.message} — unlocking")
-                    _tradeError.value = r.message ?: "Failed to confirm trade. Please try again."
+                    _tradeError.value = r.message
                     repo.unlockTrade(token, id)
                 }
             }
@@ -343,19 +365,19 @@ class HomeViewModel {
         }
     }
 
-    fun buySellTrade(token: String, id: String, onSuccess: () -> Unit = {}) {
-        scope.launch {
-            val lockResult = repo.lockTrade(token, id)
-            if (lockResult is Result.Error) {
-                _tradeError.value = lockResult.message ?: "Failed to lock trade."
-                return@launch
-            }
-            when (val r = repo.createBuyingSellingDraft(token, id)) {
-                is Result.Success -> { loadUserData(token); kotlinx.coroutines.delay(500); onSuccess() }
-                is Result.Error -> { _tradeError.value = r.message ?: "Failed to process trade." }
-            }
-        }
-    }
+//    fun buySellTrade(token: String, id: String, onSuccess: () -> Unit = {}) {
+//        scope.launch {
+//            val lockResult = repo.lockTrade(token, id)
+//            if (lockResult is Result.Error) {
+//                _tradeError.value = lockResult.message ?: "Failed to lock trade."
+//                return@launch
+//            }
+//            when (val r = repo.createBuyingSellingDraft(token, id)) {
+//                is Result.Success -> { loadUserData(token); kotlinx.coroutines.delay(500); onSuccess() }
+//                is Result.Error -> { _tradeError.value = r.message ?: "Failed to process trade." }
+//            }
+//        }
+//    }
 
     fun loadServiceRate(token: String, tradeId: String, amount: Double, isSelling: Boolean) {
         scope.launch {

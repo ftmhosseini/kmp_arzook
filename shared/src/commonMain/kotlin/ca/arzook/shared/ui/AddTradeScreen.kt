@@ -1,19 +1,41 @@
 package ca.arzook.shared.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -24,7 +46,6 @@ import ca.arzook.shared.Result
 import ca.arzook.shared.model.TradeItem
 import ca.arzook.shared.repository.ArzookRepositoryImpl
 import kotlinx.coroutines.launch
-import kotlin.math.round
 
 @Composable
 fun AddSellingBuyingScreen(
@@ -69,6 +90,7 @@ fun AddSellingBuyingScreen(
     val repo = remember { ArzookRepositoryImpl("https://api.arzook.ca") }
     val scope = rememberCoroutineScope()
     val currentRate = homeViewModel?.currentRate?.collectAsState()?.value
+    val compliance = homeViewModel?.publicCompliance?.collectAsState()?.value
 
     val suggestedBase = currentRate?.let {
         if (isSelling) (it.currentMaxBuyingExchangeRate - it.userSellingRateOffset).toInt()
@@ -110,16 +132,18 @@ fun AddSellingBuyingScreen(
             }
         }
 
+        val minAmount = compliance?.minAmount ?: 50.0
+
         OutlinedTextField(
             value = amount,
             onValueChange = { amount = it.replace(",", ""); amountTouched = true },
             label = { Text("Amount ($currency)", fontSize = 10.sp) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            isError = amountTouched && (amountVal == null || amountVal < 100),
-            supportingText = if (amountTouched && (amountVal == null || amountVal < 100)) {
+            isError = amountTouched && (amountVal == null || amountVal < minAmount),
+            supportingText = if (amountTouched && (amountVal == null || amountVal < minAmount)) {
                 {
                     Text(
-                        "The minimum required amount is \$100.",
+                        "The minimum required amount is \$${minAmount.toInt()}.",
                         color = MaterialTheme.colorScheme.error
                     )
                 }
@@ -140,12 +164,12 @@ fun AddSellingBuyingScreen(
                 },
                 visualTransformation = ThousandSeparatorTransformation,
                 label = { Text("Asking Rate (IRR/$currency)", fontSize = 10.sp) },
-                isError = rateTouched && (rateVal == null || rateVal < 900000 || rateVal > 1400000),
+                isError = rateTouched && (rateVal == null || rateVal < (compliance?.minAskingRate ?: 1000000.0) || rateVal > (compliance?.maxAskingRate ?: 1400000.0)),
                 supportingText = when {
-                    rateTouched && (rateVal == null || rateVal < 900000) -> {
+                    rateTouched && (rateVal == null || rateVal < (compliance?.minAskingRate ?: 1000000.0)) -> {
                         {
                             Text(
-                                "Must be more than 900,000 IRR.",
+                                "Must be more than ${formatIrr(compliance?.minAskingRate ?: 1000000.0)} IRR.",
                                 color = MaterialTheme.colorScheme.error,
                                 fontSize = 10.sp,
                                 modifier = Modifier.padding(start = 0.dp).offset(y=(-4).dp)
@@ -153,10 +177,10 @@ fun AddSellingBuyingScreen(
                         }
                     }
 
-                    rateTouched && rateVal != null && rateVal > 1400000 -> {
+                    rateTouched && rateVal != null && rateVal > (compliance?.maxAskingRate ?: 1400000.0) -> {
                         {
                             Text(
-                                "Must be less than 1,400,000 IRR.",
+                                "Must be less than ${formatIrr(compliance?.maxAskingRate ?: 1400000.0)} IRR.",
                                 color = MaterialTheme.colorScheme.error,
                                 fontSize = 10.sp,
                                 modifier = Modifier.padding(start = 0.dp).offset(y=(-4).dp)
@@ -203,7 +227,7 @@ fun AddSellingBuyingScreen(
         var fetchedSvcRate by remember { mutableStateOf<Double?>(null) }
 
         LaunchedEffect(amountVal, isSelling) {
-            if (amountVal != null && amountVal >= 100) {
+            if (amountVal != null && amountVal >= (compliance?.minAmount ?: 50.0)) {
                 val result = if (isSelling) repo.getServiceRateForSelling(token, amountVal)
                 else repo.getServiceRateForBuying(token, amountVal)
                 fetchedSvcRate = (result as? Result.Success)?.data
@@ -213,9 +237,9 @@ fun AddSellingBuyingScreen(
         {
             println("[selling]: $fetchedSvcRate")
             println("[selling]: $rateVal")
-            println("[selling]: ${(rateVal?.minus((fetchedSvcRate!! / 3)))?.toLong()}")
+            println("[selling]: ${(rateVal.minus((fetchedSvcRate!! / 3))).toLong()}")
 
-            println("[selling]: ${4.times((rateVal?.minus((fetchedSvcRate!! / 2))!!))}")
+            println("[selling]: ${4.times((rateVal.minus((fetchedSvcRate!! / 2))))}")
         }
         val computedComplianceFee = if (computedTotal != null && fetchedSvcRate != null && rateVal != null)
             if (isSelling) ((4 * (rateVal + (fetchedSvcRate!! / 2))).toLong()+5000)/10000*10000 else  ((4 * (rateVal - (fetchedSvcRate!! / 2))).toLong()+5000)/10000*10000  else null
@@ -235,7 +259,7 @@ fun AddSellingBuyingScreen(
                     value = formatIrr(computedComplianceFee.toDouble()),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("Compliance Fee (IRR)", fontSize = 10.sp) },
+                    label = { Text("Compliance Fee (CAD \$${compliance?.complianceFeeCAD ?: ""}) (IRR)", fontSize = 10.sp) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -360,14 +384,14 @@ fun AddSellingBuyingScreen(
                         if (amountVal == null || rateVal == null) {
                             errorMsg = "Enter valid amount and rate."; return@ArzookButton
                         }
-                        if (amountVal < 100) {
-                            errorMsg = "The minimum required amount is \$100."; return@ArzookButton
+                        if (amountVal < (compliance?.minAmount ?: 50.0)) {
+                            errorMsg = "The minimum required amount is \$${(compliance?.minAmount ?: 50.0).toInt()}."; return@ArzookButton
                         }
-                        if (rateVal < 900000) {
-                            errorMsg = "Must be more than 900,000 IRR."; return@ArzookButton
+                        if (rateVal < (compliance?.minAskingRate ?: 1000000.0)) {
+                            errorMsg = "Must be more than ${formatIrr(compliance?.minAskingRate ?: 1000000.0)} IRR."; return@ArzookButton
                         }
-                        if (rateVal > 1400000) {
-                            errorMsg = "Must be less than 1,400,000 IRR."; return@ArzookButton
+                        if (rateVal > (compliance?.maxAskingRate ?: 1400000.0)) {
+                            errorMsg = "Must be less than ${formatIrr(compliance?.maxAskingRate ?: 1400000.0)} IRR."; return@ArzookButton
                         }
                         if (purposeOfTransaction.length < 5) {
                             purposeTouched = true; errorMsg =

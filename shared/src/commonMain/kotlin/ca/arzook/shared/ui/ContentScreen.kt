@@ -9,7 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowLeft
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -61,7 +62,7 @@ fun ContentScreen(title: String, onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowLeft, contentDescription = "Back")
             }
             Text(title, style = MaterialTheme.typography.titleMedium)
         }
@@ -81,26 +82,30 @@ fun ContentScreen(title: String, onBack: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            val selectedBg = Green
-                            val unselectedBg = Brown
                             TextButton(
                                 onClick = { isFarsi = false },
                                 colors = ButtonDefaults.textButtonColors(
-                                    containerColor = if (!isFarsi) selectedBg else unselectedBg,
+                                    containerColor = if (!isFarsi) Green else Brown,
                                     contentColor = Color.White
                                 ),
                                 shape = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp),
                                 modifier = Modifier.height(36.dp)
-                            ) { Text("English", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                            ) {
+                                if (!isFarsi) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Text(" English", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
                             TextButton(
                                 onClick = { isFarsi = true },
                                 colors = ButtonDefaults.textButtonColors(
-                                    containerColor = if (isFarsi) selectedBg else unselectedBg,
+                                    containerColor = if (isFarsi) Green else Brown,
                                     contentColor = Color.White
                                 ),
                                 shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp),
                                 modifier = Modifier.height(36.dp)
-                            ) { Text("فارسی", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                            ) {
+                                if (isFarsi) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Text(" فارسی", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
                         }
                     }
                     Spacer(Modifier.height(12.dp))

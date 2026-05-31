@@ -222,3 +222,12 @@ data class Payee(
     val irNationalId: String? = null,
     val irPostalCode: String? = null
 )
+
+@Serializable
+data class PublicCompliance(
+    val minAmount: Double = 0.0,
+    val minAskingRate: Double = 0.0,
+    val maxAskingRate: Double = 0.0,
+    val complianceFeeCAD: Double = 0.0,
+    val complianceFeeRounding: Double = 0.0
+)

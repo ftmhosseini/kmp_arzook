@@ -1,29 +1,47 @@
 package ca.arzook.shared.ui
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -49,8 +67,7 @@ fun FabUI(
     onConfirmDeposit: () -> Unit = {},
 ) {
     LaunchedEffect(expanded.value) { onExpandedChange(expanded.value) }
-    var fabItems:List<MiniFabItem>? = null
-    fabItems = if (token.isNullOrEmpty()) null else buildList {
+    val fabItems:List<MiniFabItem>? = if (token.isNullOrEmpty()) null else buildList {
         if (isAdmin) {
             add(MiniFabItem(Icons.Filled.AccountBalanceWallet, "Admin Wallet"))
             add(MiniFabItem(Icons.Filled.ManageAccounts, "Confirm Deposit"))
@@ -60,7 +77,7 @@ fun FabUI(
         add(MiniFabItem(Icons.Filled.Sell, "My Selling"))
         add(MiniFabItem(Icons.Filled.RateReview, "Rate Alert"))
         add(MiniFabItem(Icons.Filled.ManageAccounts, "Profile"))
-        add(MiniFabItem(Icons.Filled.Logout, "Sign out"))
+        add(MiniFabItem(Icons.AutoMirrored.Filled.Logout, "Sign out"))
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {

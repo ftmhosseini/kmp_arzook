@@ -6,9 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowRight
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,23 +26,33 @@ fun AccountScreen(
     user: ca.arzook.shared.model.AuthenticatedData?,
     isLoggedIn: Boolean,
     isAdmin: Boolean,
+    authViewModel: AuthViewModel? = null,
+//    onBack: () -> Unit = {},
     onLogin: () -> Unit,
     onLogout: () -> Unit,
     onProfile: () -> Unit,
     onWallet: () -> Unit,
-    onMyBuying: () -> Unit,
-    onMySelling: () -> Unit,
+//    onMyBuying: () -> Unit,
+//    onMySelling: () -> Unit,
     onRateAlert: () -> Unit,
-    onAdminWallet: () -> Unit,
-    onConfirmDeposit: () -> Unit,
+    onAdminWallet: () -> Unit = {},
+    onConfirmDeposit: () -> Unit = {},
     onAdminCompletedTrades: () -> Unit = {},
-    onOrdering: () -> Unit = {},
-    fromCurrency: String = ALL_CURRENCIES[0],
-    toCurrency: String = ALL_CURRENCIES[1],
-    onSaveSettings: (from: String, to: String) -> Unit = { _, _ -> },
+//    onOrdering: () -> Unit = {},
+//    fromCurrency: String = ALL_CURRENCIES[0],
+//    toCurrency: String = ALL_CURRENCIES[1],
+//    onSaveSettings: (from: String, to: String) -> Unit = { _, _ -> },
 ) {
 //    var settingsExpanded by remember { mutableStateOf(false) }
 
+    Column(modifier = Modifier.fillMaxSize()) {
+//        Row(
+//            modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 4.dp, vertical = 8.dp),
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowLeft, contentDescription = "Back") }
+//            Text("Account", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+//        }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         // User info header
         item {
@@ -71,7 +82,7 @@ fun AccountScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
                     if (isLoggedIn && !user?.email.isNullOrBlank()) {
-                        Text(user!!.email!!, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Text(user!!.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                 }
             }
@@ -80,7 +91,7 @@ fun AccountScreen(
 
         if (!isLoggedIn) {
             item {
-                AccountMenuItem(Icons.Filled.Login, "Sign In", onClick = onLogin)
+                AccountMenuItem(Icons.AutoMirrored.Filled.Login, "Sign In", onClick = onLogin)
                 HorizontalDivider()
             }
         } else {
@@ -122,10 +133,29 @@ fun AccountScreen(
 //                    )
 //                }
                 HorizontalDivider()
-                AccountMenuItem(Icons.Filled.Logout, "Sign Out", tint = Brown, onClick = onLogout)
+                // Biometric toggle
+                if (authViewModel != null && isBiometricAvailable()) {
+                    val biometricEnabled by authViewModel.biometricEnabled.collectAsState()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.Fingerprint, contentDescription = null)
+                        Spacer(Modifier.width(16.dp))
+                        Text("Biometric Login", style = MaterialTheme.typography.bodyLarge)
+                        Spacer(Modifier.weight(1f))
+                        Switch(
+                            checked = biometricEnabled,
+                            onCheckedChange = { authViewModel.setBiometricEnabled(it) }
+                        )
+                    }
+                    HorizontalDivider()
+                }
+                AccountMenuItem(Icons.AutoMirrored.Filled.Logout, "Sign Out", tint = Brown, onClick = onLogout)
                 HorizontalDivider()
             }
         }
+    }
     }
 }
 
@@ -147,6 +177,8 @@ private fun AccountMenuItem(
         Spacer(Modifier.width(16.dp))
         Text(title, style = MaterialTheme.typography.bodyLarge, color = tint.takeIf { it != Color.Unspecified } ?: Color.Unspecified)
         Spacer(Modifier.weight(1f))
-        Icon(Icons.Filled.ChevronRight, contentDescription = null)
+//        Icon(Icons.Filled.ChevronRight, contentDescription = null)
+        Icon(Icons.AutoMirrored.Filled.ArrowRight, contentDescription = null)
+
     }
 }

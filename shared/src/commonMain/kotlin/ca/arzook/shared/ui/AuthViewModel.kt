@@ -27,6 +27,8 @@ class AuthViewModel(
     private val loadToken: suspend () -> String?,
     private val saveUser: (String?) -> Unit = {},
     private val loadUser: suspend () -> String? = { null },
+    private val saveBiometricEnabled: (Boolean) -> Unit = {},
+    private val loadBiometricEnabled: suspend () -> Boolean = { false },
     initialUser: AuthenticatedData? = null,
 ) {
     private val repo = ArzookRepositoryImpl(baseUrl = "https://api.arzook.ca")
@@ -41,8 +43,12 @@ class AuthViewModel(
     private val _userDetails = MutableStateFlow<AuthenticatedData?>(initialUser)
     val userDetails: StateFlow<AuthenticatedData?> = _userDetails.asStateFlow()
 
+    private val _biometricEnabled = MutableStateFlow(false)
+    val biometricEnabled: StateFlow<Boolean> = _biometricEnabled.asStateFlow()
+
     init {
         scope.launch {
+            _biometricEnabled.value = loadBiometricEnabled()
             val saved = loadToken()
             // Strip any "Bearer " prefix that may have been saved by older app versions
             val raw = if (saved != null && saved.startsWith("Bearer ", ignoreCase = true)) saved.substring(7) else saved
@@ -127,11 +133,32 @@ class AuthViewModel(
         }
     }
 
+    fun setBiometricEnabled(enabled: Boolean) {
+        _biometricEnabled.value = enabled
+        saveBiometricEnabled(enabled)
+    }
+
+    fun biometricLogin() {
+        scope.launch {
+            if (!_biometricEnabled.value) return@launch
+            val savedToken = loadToken() ?: return@launch
+            val result = authenticateWithBiometrics("Sign in to Arzook")
+            if (result == BiometricResult.Success) {
+                val raw = if (savedToken.startsWith("Bearer ", ignoreCase = true)) savedToken.substring(7) else savedToken
+                _token.value = raw
+                _loginState.value = LoginState.Success
+                loadUserDetails(raw)
+            }
+        }
+    }
+
     fun logout() {
         saveToken(null)
         saveUser(null)
+        saveBiometricEnabled(false)
         _token.value = null
         _userDetails.value = null
+        _biometricEnabled.value = false
         _loginState.value = LoginState.Idle
     }
 

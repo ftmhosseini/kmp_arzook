@@ -27,11 +27,9 @@ internal val ThousandSeparatorTransformation = VisualTransformation { text ->
     val original = text.text
     if (original.isEmpty()) return@VisualTransformation TransformedText(text, OffsetMapping.Identity)
     val formatted = buildString {
-        var count = 0
-        for (i in original.indices.reversed()) {
+        for ((count, i) in original.indices.reversed().withIndex()) {
             if (count > 0 && count % 3 == 0) insert(0, ',')
             insert(0, original[i])
-            count++
         }
     }
     val offsetMapping = object : OffsetMapping {

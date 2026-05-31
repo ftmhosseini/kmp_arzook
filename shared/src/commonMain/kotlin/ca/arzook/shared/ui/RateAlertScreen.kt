@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowLeft
 import androidx.compose.material3.*
 import ca.arzook.shared.model.RateAlert
 import androidx.compose.runtime.*
@@ -38,6 +40,34 @@ fun RateAlertScreen(onBack: () -> Unit, token: String = "", homeViewModel: HomeV
 // Define your colors based on the press state
     val buttonColor = if (isPressed) ChosenMenu else Yellow40
     val textColor = if (isPressed) Color.White else Color.Black
+//    CenterAlignedTopAppBar(
+//        title = {
+//            Text(
+//                text = "Rate Alert",
+//                style = MaterialTheme.typography.titleMedium
+//            )
+//        },
+//        navigationIcon = {
+//            IconButton(onClick = { onBack() }) {
+//                Icon(Icons.AutoMirrored.Filled.ArrowLeft, contentDescription = "Back")
+//            }
+//        },
+//        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+//            containerColor = Color.White
+//        ),
+//        windowInsets = WindowInsets(0),
+//        modifier = Modifier.offset(y=(-16).dp)
+//    )
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowLeft, contentDescription = "Back")
+        }
+        Text("Rate Alert", style = MaterialTheme.typography.titleMedium)
+    }
+    HorizontalDivider()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -46,9 +76,9 @@ fun RateAlertScreen(onBack: () -> Unit, token: String = "", homeViewModel: HomeV
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Rate & Amount Alerts", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Brown)
-        Spacer(Modifier.height(24.dp))
+//        Spacer(Modifier.height(24.dp))
         homeViewModel?.let { Chart(homeViewModel = it) }
-        Spacer(Modifier.height(16.dp))
+//        Spacer(Modifier.height(16.dp))
         HorizontalDivider()
 
         // Selling Alerts

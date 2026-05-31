@@ -12,6 +12,7 @@ androidx-datastore = "1.2.1"
 youtube-player = "13.0.0"
 google-signin = "21.5.1"
 credentials = "1.5.0"
+biometric = "1.1.0"
 googleid = "1.2.0"
 ktor = "3.0.3"
 kotlinx-serialization = "1.6.3"
@@ -31,6 +32,7 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 youtube-player = { module = "com.pierfrancescosoffritti.androidyoutubeplayer:core", version.ref = "youtube-player" }
 google-signin = { module = "com.google.android.gms:play-services-auth", version.ref = "google-signin" }
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 compose-ui = { module = "androidx.compose.ui:ui", version.ref = "compose" }

@@ -19,7 +19,6 @@ actual fun utcToLocal(utcDateTime: String): String {
         val date = parser.dateFromString(utcDateTime) ?: return utcDateTime
         val formatter = NSDateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        formatter.timeZone = NSTimeZone.localTimeZone
         formatter.stringFromDate(date)
     } catch (_: Exception) { utcDateTime }
 }

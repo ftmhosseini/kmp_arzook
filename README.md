@@ -124,6 +124,7 @@ MainActivity (Android) / iOSApp.swift (iOS)
 |---------|----------|-------|
 | Login (email/password) | `POST api/auth/login` | Returns JWT token |
 | Google Sign-In | `POST api/auth/social-login` | Send Google ID token |
+| Biometric Login | — | Fingerprint/Face ID, uses stored token locally |
 | Register | `POST api/auth/register` | firstName, lastName, email, password, inviterEmail |
 | Logout | — | Clears token from DataStore locally |
 
@@ -266,8 +267,9 @@ Manages authentication state. Constructed in `MainActivity` with DataStore lambd
 | `token` | `StateFlow<String?>` | JWT token, null = logged out |
 | `loginState` | `StateFlow<LoginState>` | Idle / Loading / Success / Error |
 | `userDetails` | `StateFlow<AuthenticatedData?>` | Cached user profile |
+| `biometricEnabled` | `StateFlow<Boolean>` | Whether biometric login is enabled |
 
-Key functions: `login()`, `logout()`, `register()`, `googleSignIn()`, `receiveToken()`, `updateProfile()`, `loadUserDetails()`
+Key functions: `login()`, `logout()`, `register()`, `googleSignIn()`, `receiveToken()`, `updateProfile()`, `loadUserDetails()`, `biometricLogin()`, `setBiometricEnabled()`
 
 ### HomeViewModel (`shared/ui/HomeViewModel.kt`)
 Manages all app data. Created once in `ArzookApp` with `remember { HomeViewModel() }`.
@@ -430,6 +432,7 @@ Net Payout: {askingRate × amount - complianceFee} IRR
 - Result type (Success, Error)
 - Login/Register serialization
 - Google Sign-In
+- Biometric login (preference toggle, state management)
 - Update profile
 - Decode user from DataStore
 - TradeItem serialization + toggle fields + delete rules
@@ -449,6 +452,7 @@ Net Payout: {askingRate × amount - complianceFee} IRR
 **`RepositoryTest.kt`** — Integration tests with FakeArzookRepository:
 - Login (success, failure)
 - Google Sign-In (success, failure)
+- Biometric login (enable, disable, login with stored token)
 - Register (with/without inviter)
 - Get/Update profile
 - Upload documents (photo ID, utility bill)

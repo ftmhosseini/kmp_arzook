@@ -2,7 +2,6 @@ package ca.arzook.shared.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -76,7 +75,6 @@ fun OrderingScreen(
         (buyingTrades + sellingTrades).sortedByDescending { it.exchangeDepositedTime ?: "" }
     }
 
-//    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tabIndex) {
             Tab(selected = tabIndex == 0, onClick = { tabIndex = 0 }, text = { Text("Active") })
@@ -92,8 +90,6 @@ fun OrderingScreen(
                 0 -> {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-//                            horizontalArrangement = Arrangement.SpaceBetween,
-//                            verticalAlignment = Alignment.CenterVertically
                     ) {
                         SettingsScreen(
                             fromCurrency = fromCurrency,

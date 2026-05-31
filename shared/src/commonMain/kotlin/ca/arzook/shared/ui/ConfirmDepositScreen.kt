@@ -22,12 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CheckboxColors
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -343,7 +339,7 @@ fun UserInfoSection(
 
         } else {
             var wallet by remember { mutableStateOf<WalletStatus?>(null) }
-            val scope = rememberCoroutineScope()
+//            val scope = rememberCoroutineScope()
             LaunchedEffect(user.id) {
                 when (val r = repo.adminGetUserWallet(token, user.id)) {
                     is Result.Success -> wallet = r.data
@@ -389,7 +385,6 @@ fun UserInfoSection(
 
 private val banks = listOf("Melli", "Mellat")
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PayeeEditForm(draftData: TradeItem, token: String) {
     var firstName by remember { mutableStateOf(draftData.payeeFirstName ?: draftData.payeeName ?: "") }

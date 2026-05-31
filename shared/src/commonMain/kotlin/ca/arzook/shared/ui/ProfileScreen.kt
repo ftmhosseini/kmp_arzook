@@ -1,12 +1,15 @@
 package ca.arzook.shared.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowLeft
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,6 +27,7 @@ import ca.arzook.shared.Result
 import ca.arzook.shared.model.AuthenticatedData
 import ca.arzook.shared.model.UpdateProfileRequest
 import ca.arzook.shared.repository.ArzookRepositoryImpl
+import coil3.compose.rememberAsyncImagePainter
 import kotlinx.coroutines.launch
 
 
@@ -31,11 +36,23 @@ fun ProfileScreen(
     user: AuthenticatedData?,
     isLoggedIn: Boolean = false,
     authViewModel: AuthViewModel? = null,
+    onBack: () -> Unit,
     token: String = "",
 ) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowLeft, contentDescription = "Back")
+        }
+        Text("Profile", style = MaterialTheme.typography.titleMedium)
+    }
+    HorizontalDivider()
     if (user == null) {
         Box(Modifier.fillMaxSize().background(Cream40), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 16.dp)) {
                 Icon(Icons.Filled.AccountCircle, null, Modifier.size(64.dp), tint = Color.Gray)
                 Spacer(Modifier.height(12.dp))
                 if (isLoggedIn) {
@@ -98,11 +115,19 @@ fun ProfileScreen(
     var postalCode by remember(user) { mutableStateOf(user.postalCodeStr ?: "") }
 
     Column(
-        modifier = Modifier.background(Cream40).verticalScroll(rememberScrollState())
-            .padding(16.dp),
+        modifier = Modifier.padding(16.dp).background(Cream40).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Filled.AccountCircle, null, Modifier.size(80.dp), tint = Brown)
+        if (!user.pictureUrl.isNullOrBlank()) {
+            Image(
+                painter = rememberAsyncImagePainter(user.pictureUrl),
+                contentDescription = "Profile",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(80.dp).clip(CircleShape)
+            )
+        } else {
+            Icon(Icons.Filled.AccountCircle, null, Modifier.size(80.dp), tint = Brown)
+        }
         Spacer(Modifier.height(8.dp))
         Text("${user.firstName} ${user.lastName}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Spacer(Modifier.height(4.dp))

@@ -4,10 +4,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,14 +31,14 @@ fun SplashLogo(alpha: Float) {
     )
 }
 
-@Composable
-fun TopBarLogo(onClick: () -> Unit) {
-    Image(
-        painter = painterResource(Res.drawable.arzook_logo),
-        contentDescription = "Arzook",
-        modifier = Modifier.size(48.dp).padding(end = 8.dp).clickable { onClick() }
-    )
-}
+//@Composable
+//fun TopBarLogo(onClick: () -> Unit) {
+//    Image(
+//        painter = painterResource(Res.drawable.arzook_logo),
+//        contentDescription = "Arzook",
+//        modifier = Modifier.size(48.dp).padding(end = 8.dp).clickable { onClick() }
+//    )
+//}
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {

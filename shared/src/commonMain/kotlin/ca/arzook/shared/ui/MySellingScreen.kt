@@ -16,18 +16,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,7 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -47,6 +44,8 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,12 +57,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.arzook.shared.model.Payee
@@ -84,6 +82,7 @@ fun MySellingScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var deleteKey by remember { mutableIntStateOf(0) }
+    val publicCompliance = homeViewModel?.publicCompliance?.collectAsState()?.value
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -149,7 +148,7 @@ fun MySellingScreen(
                     if (completedTrades.isEmpty()) {
                         SellingEmptyMessage("No completed selling trades.")
                     } else {
-                        completedTrades.forEach { CompletedSellingRow(it, token) }
+                        completedTrades.forEach { CompletedSellingRow(it, token, publicCompliance) }
                     }
                 }
             }
@@ -157,7 +156,6 @@ fun MySellingScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SellingDraftRow(
     draft: TradeItem,
@@ -168,14 +166,15 @@ internal fun SellingDraftRow(
     onDeleted: () -> Unit = {}
 ) {
     var expanded by remember(key) { mutableStateOf(false) }
+    val publicCompliance = homeViewModel?.publicCompliance?.collectAsState()?.value
     var selectedPayee by remember { mutableStateOf<Payee?>(null) }
     var payeeDropdownExpanded by remember { mutableStateOf(false) }
     var advertised by remember { mutableStateOf(draft.advertised == true) }
     var urgent by remember { mutableStateOf(draft.urgent == true) }
-    val scope = rememberCoroutineScope()
+//    val scope = rememberCoroutineScope()
 
     val status = when {
-        draft.deposited == null -> "e-Transfer"
+        draft.deposited != true -> "e-Transfer"
         draft.buyingCode == null -> "Pending Buyer"
         draft.buyingDraftExchangeDeposited == null -> "Buyer Deposit"
         draft.eTransferForwardedDate == null -> "e-Transfer Forward"
@@ -221,9 +220,17 @@ internal fun SellingDraftRow(
                     color = Brown
                 )
                 if ((draft.locked == true || draft.eTransferForwardedDate == null) && draft.lockExpiresIn != null && status != "e-Transfer Deposit") {
+                    var remaining by remember(draft.lockExpiresIn) { mutableIntStateOf(draft.lockExpiresIn) }
+                    LaunchedEffect(draft.lockExpiresIn) {
+                        while (remaining > 0) { kotlinx.coroutines.delay(1000); remaining-- }
+                    }
+                    val h = remaining / 3600
+                    val m = (remaining % 3600) / 60
+                    val s = remaining % 60
+                    val timeText = if (h > 0) "$h:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}" else "${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}"
                     Text(
-                        text = "${draft.lockExpiresIn}s",
-                        color = Color.Red,
+                        text = timeText,
+                        color = Brown,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
                     )
@@ -253,7 +260,7 @@ internal fun SellingDraftRow(
             val clipboardManager = LocalClipboardManager.current
 
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text("Code: ${draft.code ?: ""}", color = GreenSold, fontWeight = FontWeight.Bold)
+                Text("Code: ${draft.code ?: ""}", color = GreenSold, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                 Spacer(Modifier.height(8.dp))
 
 
@@ -270,7 +277,7 @@ internal fun SellingDraftRow(
                 if (draft.isLocked == null || draft.eTransferForwardedDate == null) {
                     EditableField(
                         label = "Amount (${draft.currency})",
-                        value = formatCad(editAmount.toDouble()),
+                        value = formatCad(editAmount),
                         onApply = { newVal ->
                             val v = newVal.CleanNumber()
                             editAmount = v
@@ -278,7 +285,7 @@ internal fun SellingDraftRow(
                                 token,
                                 draft.id ?: "",
                                 v,
-                                editRate ?: (draft.askingRate ?: 0.0),
+                                editRate,
                                 selectedPayee?.sheba ?: draft.sheba ?: "",
                                 selectedPayee?.name ?: draft.payeeName ?: ""
                             )
@@ -287,14 +294,14 @@ internal fun SellingDraftRow(
                     Spacer(Modifier.height(4.dp))
                     EditableField(
                         label = "Asking Rate (IRR)",
-                        value = formatIrr(editRate.toDouble()),
+                        value = formatIrr(editRate),
                         onApply = { newVal ->
                             val v = newVal.CleanNumber()
                             editRate = v
                             if (token.isNotEmpty()) homeViewModel?.updateSellingDraft(
                                 token,
                                 draft.id ?: "",
-                                editAmount ?: (draft.amount ?: 0.0),
+                                editAmount,
                                 v,
                                 selectedPayee?.sheba ?: draft.sheba ?: "",
                                 selectedPayee?.name ?: draft.payeeName ?: ""
@@ -311,11 +318,19 @@ internal fun SellingDraftRow(
                 )
                 InfoRow("Exchange Rate", "${formatIrr(draft.exchangeRate ?: 0.0)} IRR ")
                 // Payee selector
-                Text("Payee", color = Brown, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.SpaceBetween) {
-                    OutlinedButton(onClick = { payeeDropdownExpanded = true }) {
-                        Text(selectedPayee?.name ?: draft.payeeName ?: "Select payee")
-                    }
+                    OutlinedTextField(
+                        value = selectedPayee?.name ?: draft.payeeName ?: "Select payee",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Payee", fontSize = 10.sp) },
+                        trailingIcon = {
+                            IconButton(onClick = { payeeDropdownExpanded = true }) {
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Select")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().clickable { payeeDropdownExpanded = true }
+                    )
                     ArzookDropdownMenu(
                         expanded = payeeDropdownExpanded,
                         onDismissRequest = { payeeDropdownExpanded = false }
@@ -323,11 +338,11 @@ internal fun SellingDraftRow(
                         payees.forEach { payee ->
                             DropdownMenuItem(
                                 text = { Text(payee.name) },
-                                onClick = { selectedPayee = payee; payeeDropdownExpanded = false;
+                                onClick = { selectedPayee = payee; payeeDropdownExpanded = false
                                     if (token.isNotEmpty()) homeViewModel?.updateSellingDraft(
                                         token, draft.id ?: "",
-                                        editAmount ?: (draft.amount ?: 0.0),
-                                        editRate ?: (draft.askingRate ?: 0.0),
+                                        editAmount,
+                                        editRate,
                                         selectedPayee?.sheba ?: draft.sheba ?: "",
                                         selectedPayee?.name ?: draft.payeeName ?: ""
                                     ) }
@@ -387,13 +402,13 @@ internal fun SellingDraftRow(
                         }
                         if (!draft.arzookDepositEmail.isNullOrEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                             InfoRow("Arzook Deposit Email",draft.arzookDepositEmail)
-                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(draft.arzookDepositEmail!!)) }, modifier = Modifier.size(24.dp)) {
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(draft.arzookDepositEmail)) }, modifier = Modifier.size(24.dp)) {
                                 Icon(Icons.Filled.ContentCopy, contentDescription = "Copy email", modifier = Modifier.size(14.dp))
                             }
                         }
                         if (!draft.eTransferPassword.isNullOrEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                             InfoRow("e-Transfer password",draft.eTransferPassword)
-                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(draft.eTransferPassword!!)) }, modifier = Modifier.size(24.dp)) {
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(draft.eTransferPassword)) }, modifier = Modifier.size(24.dp)) {
                                 Icon(Icons.Filled.ContentCopy, contentDescription = "Copy password", modifier = Modifier.size(14.dp))
                             }
                         }
@@ -407,7 +422,7 @@ internal fun SellingDraftRow(
                 }
                 AnimatedVisibility(visible = showGet) {
                     Column {
-                        InfoRow("Amount", "${formatIrr((draft.askingRate ?: 0.0) * (draft.amount ?: 0.0))} IRR")
+                        InfoRow("Amount", "${formatIrr((draft.askingRate ?: 0.0) * (draft.amount ?: 0.0)-draft.complianceFee)} IRR")
                         InfoRow("Your Sheba",draft.sheba?:"N/A")
                         InfoRow("Recipient",draft.payeeName ?: "N/A")
                     }
@@ -431,9 +446,9 @@ internal fun SellingDraftRow(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        InfoRow("Compliance fee", "${formatIrr(draft.complianceFee)} IRR ")
+                        InfoRow("Compliance fee (CAD \$${publicCompliance?.complianceFeeCAD ?: ""})", "${formatIrr(draft.complianceFee)} IRR ")
                         IconButton(onClick = { showComplianceInfo = true }, modifier = Modifier.size(24.dp)) {
-                            Icon(imageVector = Icons.Default.Help, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Icon(imageVector = Icons.AutoMirrored.Filled.Help, contentDescription = null, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -573,7 +588,7 @@ internal fun SellingDraftRow(
                                             draft.id ?: "",
                                             onSuccess = onDeleted
                                         )
-                                    }) { Text("Delete", color = Color.Red) }
+                                    }) { Text("Delete", color = Brown) }
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
@@ -599,7 +614,7 @@ internal fun SellingDraftRow(
 }
 
 @Composable
-internal fun CompletedSellingRow(trade: TradeItem, token: String) {
+internal fun CompletedSellingRow(trade: TradeItem, token: String, publicCompliance: ca.arzook.shared.model.PublicCompliance? = null) {
     var expanded by remember { mutableStateOf(false) }
     val repo =
         remember { ca.arzook.shared.repository.ArzookRepositoryImpl("https://api.arzook.ca") }
@@ -649,7 +664,7 @@ internal fun CompletedSellingRow(trade: TradeItem, token: String) {
                     "${formatIrr((trade.exchangeRate ?: 0.0) - (trade.askingRate ?: 0.0))} IRR "
                 )
                 if (trade.complianceFee > 0.0) {
-                    InfoRow("Compliance Fee", "${formatIrr(trade.complianceFee)} IRR")
+                    InfoRow("Compliance Fee (CAD \$${publicCompliance?.complianceFeeCAD ?: ""})", "${formatIrr(trade.complianceFee)} IRR")
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -689,7 +704,7 @@ internal fun CompletedSellingRow(trade: TradeItem, token: String) {
                 if (showReceipt) {
                     Text(
                         "Unable to open PDF. Please install a PDF reader (e.g. Google Drive, Adobe Acrobat) from the Play Store, then try again.",
-                        color = Color.Red,
+                        color = Brown,
                         modifier = Modifier.padding(vertical = 4.dp),
                         style = MaterialTheme.typography.bodySmall
                     )

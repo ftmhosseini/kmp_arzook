@@ -14,11 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowLeft
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.CurrencyExchange
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import arzook.shared.generated.resources.Res
 import arzook.shared.generated.resources.ic_nav_logo
@@ -73,10 +73,14 @@ sealed class Screen {
     data object LearningVideos : Screen()
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArzookApp(authViewModel: AuthViewModel) {
-    var isFabMenuOpen by remember { mutableStateOf(false) }
+fun ArzookApp(
+    authViewModel: AuthViewModel,
+    initialFromCurrency: String = "CAD",
+    initialToCurrency: String = "IRR",
+    onCurrencySettingChanged: (from: String, to: String) -> Unit = { _, _ -> }
+) {
+    val isFabMenuOpen by remember { mutableStateOf(false) }
     val fabExpanded = remember { mutableStateOf(false) }
     val homeViewModel = remember { HomeViewModel() }
     val token by authViewModel.token.collectAsState()
@@ -84,8 +88,8 @@ fun ArzookApp(authViewModel: AuthViewModel) {
     val buyingTrades by homeViewModel.buyingTrades.collectAsState()
 
     // Currency state: drives Offering screen behaviour
-    var fromCurrency by remember { mutableStateOf("CAD") }
-    var toCurrency by remember { mutableStateOf("IRR") }
+    var fromCurrency by remember { mutableStateOf(initialFromCurrency) }
+    var toCurrency by remember { mutableStateOf(initialToCurrency) }
 
     // Back stack — Home is the root, Splash is the entry point
     val backStack = remember { mutableStateListOf<Screen>(Screen.Splash) }
@@ -140,7 +144,8 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                     val alpha = if (isFabMenuOpen) 0.4f else 1f
                     NavigationBar(containerColor = Color.White.copy(alpha = alpha)) {
                         NavigationBarItem(
-                            selected = screen is Screen.Account || screen is Screen.Profile || screen is Screen.RateAlert || screen is Screen.EWallet || screen is Screen.AdminWallet || screen is Screen.ConfirmDeposit,
+                            selected = screen is Screen.Account || screen is Screen.Profile || screen is Screen.RateAlert || screen is Screen.EWallet || screen is Screen.AdminWallet || screen is Screen.ConfirmDeposit
+                                    || screen is Screen.Login || screen is Screen.SignUp,
                             onClick = {
                                 if (!isFabMenuOpen) {
                                     backStack.clear(); backStack.add(Screen.Account)
@@ -163,7 +168,6 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                                 }
                             },
                             enabled = !isFabMenuOpen,
-//                            icon = { Text("💱", color = iconColor) },
                             icon = {
                                 Icon(
                                     Icons.Default.CurrencyExchange,
@@ -261,7 +265,7 @@ fun ArzookApp(authViewModel: AuthViewModel) {
 //                        title = "Offering",
                         initialFrom = fromCurrency,
                         initialTo = toCurrency,
-                        onCurrencyChange = { f, t -> fromCurrency = f; toCurrency = t },
+                        onCurrencyChange = { f, t -> fromCurrency = f; toCurrency = t; onCurrencySettingChanged(f, t) },
                         token = token,
                         onLoginRequired = { navigate(Screen.Login) },
 //                        onBuy = { navigate(Screen.MyBuying) },
@@ -284,7 +288,6 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                     )
 
                     is Screen.Selling -> TradesScreen(
-//                        title = "Selling Trades",
                         isSelling = true,
                         token = token,
                         onLoginRequired = { navigate(Screen.Login) },
@@ -299,7 +302,7 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                         homeViewModel = homeViewModel,
                         fromCurrency = fromCurrency,
                         toCurrency = toCurrency,
-                        onSaveSettings = { f, t -> fromCurrency = f; toCurrency = t },
+                        onSaveSettings = { f, t -> fromCurrency = f; toCurrency = t; onCurrencySettingChanged(f, t) },
                         onAddBuying = { navigate(Screen.AddBuying) },
                         onAddSelling = { navigate(Screen.AddSelling) }
                     )
@@ -307,13 +310,13 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                     is Screen.Content -> if (s.title == "Learning Videos") {
                         Column(modifier = Modifier.fillMaxSize()) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 4.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = { goBack() }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                                    Icon(Icons.AutoMirrored.Filled.ArrowLeft, contentDescription = "Back")
                                 }
-                                Text("Learning Videos", style = MaterialTheme.typography.titleMedium)
+                                Text("Learning Videos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                             }
                             HorizontalDivider()
                             HomeScreen(homeViewModel = homeViewModel)
@@ -323,12 +326,7 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                         onBack = { goBack() })
 
                     is Screen.EWallet -> Column(modifier = Modifier.fillMaxSize()) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { goBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                            Text("e-Wallet", style = MaterialTheme.typography.titleMedium)
-                        }
-                        HorizontalDivider()
-                        EWalletScreen(deposits = homeViewModel.deposits.collectAsState().value)
+                        EWalletScreen(deposits = homeViewModel.deposits.collectAsState().value, onBack = { goBack() })
                     }
                     is Screen.MyBuying -> MyBuyingScreen(
                         drafts = buyingDrafts, completedTrades = buyingTrades,
@@ -361,25 +359,16 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                     )
 
                     is Screen.Profile -> if (token.isNullOrEmpty()) navigate(Screen.Login) else Column(modifier = Modifier.fillMaxSize()) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { goBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                            Text("Profile", style = MaterialTheme.typography.titleMedium)
-                        }
-                        HorizontalDivider()
                         ProfileScreen(
                             user = authViewModel.userDetails.collectAsState().value,
                             isLoggedIn = !token.isNullOrEmpty(),
                             authViewModel = authViewModel,
+                            onBack = { goBack() },
                             token = token ?: ""
                         )
                     }
 
                     is Screen.RateAlert -> if (token.isNullOrEmpty()) navigate(Screen.Login) else Column(modifier = Modifier.fillMaxSize()) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { goBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                            Text("Rate Alert", style = MaterialTheme.typography.titleMedium)
-                        }
-                        HorizontalDivider()
                         RateAlertScreen(
                             onBack = { goBack() },
                             token = token ?: "",
@@ -393,21 +382,23 @@ fun ArzookApp(authViewModel: AuthViewModel) {
                     is Screen.Account -> AccountScreen(
                         user = authViewModel.userDetails.collectAsState().value,
                         isLoggedIn = !token.isNullOrEmpty(),
-                        isAdmin = authViewModel.userDetails.collectAsState().value?.admin == true,
+                        isAdmin = homeViewModel.isAdmin.collectAsState().value,
+                        authViewModel = authViewModel,
+//                        onBack = { goBack() },
                         onLogin = { navigate(Screen.Login) },
                         onLogout = { authViewModel.logout() },
                         onProfile = { navigate(Screen.Profile) },
                         onWallet = { navigate(Screen.EWallet) },
-                        onMyBuying = { navigate(Screen.MyBuying) },
-                        onMySelling = { navigate(Screen.MySelling) },
+//                        onMyBuying = { navigate(Screen.MyBuying) },
+//                        onMySelling = { navigate(Screen.MySelling) },
                         onRateAlert = { navigate(Screen.RateAlert) },
                         onAdminWallet = { navigate(Screen.AdminWallet) },
                         onConfirmDeposit = { navigate(Screen.ConfirmDeposit) },
                         onAdminCompletedTrades = { navigate(Screen.AdminCompletedTrades) },
-                        onOrdering = { navigate(Screen.Ordering) },
-                        fromCurrency = fromCurrency,
-                        toCurrency = toCurrency,
-                        onSaveSettings = { f, t -> fromCurrency = f; toCurrency = t }
+//                        onOrdering = { navigate(Screen.Ordering) },
+//                        fromCurrency = fromCurrency,
+//                        toCurrency = toCurrency,
+//                        onSaveSettings = { f, t -> fromCurrency = f; toCurrency = t }
                     )
 
                     is Screen.SettingsPage -> SettingsScreen(

@@ -10,8 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,7 +26,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     homeViewModel: HomeViewModel,
@@ -71,7 +70,7 @@ fun HomeScreen(
                 },
                 colors = IconButtonDefaults.iconButtonColors(containerColor = DarkOverlay)
             ) {
-                Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White)
             }
             IconButton(
                 modifier = Modifier.size(48.dp).align(Alignment.CenterStart).clip(CircleShape),
@@ -81,7 +80,7 @@ fun HomeScreen(
                 },
                 colors = IconButtonDefaults.iconButtonColors(containerColor = DarkOverlay)
             ) {
-                Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = null, tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = Color.White)
             }
         }
         PageIndicator(pageCount = banners.size, currentPage = pagerState.currentPage)

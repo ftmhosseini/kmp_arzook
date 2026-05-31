@@ -2,7 +2,11 @@ package ca.arzook.shared
 
 import ca.arzook.shared.model.*
 import ca.arzook.shared.repository.ArzookRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import kotlin.test.*
 
 class FakeArzookRepository : ArzookRepository {
@@ -22,6 +26,7 @@ class FakeArzookRepository : ArzookRepository {
     override suspend fun getDailyStats() = Result.Success(emptyList<AveRates>())
     override suspend fun getTradesList() = tradesResult
     override suspend fun getUSDTradesList() = tradesResult
+    override suspend fun getPublicCompliance() = Result.Success(PublicCompliance())
     override suspend fun login(request: LoginRequest) = loginResult
     override suspend fun googleSignIn(idToken: String) = loginResult
     override suspend fun register(user: User) = Result.Success(user)
@@ -117,6 +122,49 @@ class LoginTest {
         repo.loginResult = Result.Error("Google auth failed")
         val result = repo.googleSignIn("invalid-token")
         assertIs<Result.Error<LoginResponse>>(result)
+    }
+}
+
+// ─── Biometric Login Tests ──────────────────────────────────────────────────────
+
+class BiometricLoginRepoTest {
+    @BeforeTest fun setup() { Dispatchers.setMain(UnconfinedTestDispatcher()) }
+    @AfterTest fun teardown() { Dispatchers.resetMain() }
+
+    @Test fun biometricLogin_enableAndDisable() {
+        var biometricStored = false
+        val vm = ca.arzook.shared.ui.AuthViewModel(
+            saveToken = {}, loadToken = { "saved-token" },
+            saveBiometricEnabled = { biometricStored = it },
+            loadBiometricEnabled = { biometricStored }
+        )
+        vm.setBiometricEnabled(true)
+        assertTrue(biometricStored)
+        vm.setBiometricEnabled(false)
+        assertFalse(biometricStored)
+    }
+
+    @Test fun biometricLogin_requiresStoredToken() {
+        val vm = ca.arzook.shared.ui.AuthViewModel(
+            saveToken = {}, loadToken = { null },
+            saveBiometricEnabled = {},
+            loadBiometricEnabled = { true }
+        )
+        vm.biometricLogin()
+        assertIs<ca.arzook.shared.ui.LoginState.Idle>(vm.loginState.value)
+    }
+
+    @Test fun biometricLogin_disabledOnLogout() {
+        var biometricStored = true
+        val vm = ca.arzook.shared.ui.AuthViewModel(
+            saveToken = {}, loadToken = { "token" },
+            saveBiometricEnabled = { biometricStored = it },
+            loadBiometricEnabled = { true }
+        )
+        vm.setBiometricEnabled(true)
+        vm.logout()
+        assertFalse(biometricStored)
+        assertEquals(false, vm.biometricEnabled.value)
     }
 }
 

@@ -75,7 +75,7 @@ data class AuthenticatedData(
     val updatedAt: String? = null,
     val utilityBillFileName: String? = null,
     val utilityBillFileType: String? = null,
-    val admin: Boolean? = null
+//    val admin: Boolean? = null
 ) {
     val cityStr: String? get() = city.asStringOrNull()
     val addressStr: String? get() = address.asStringOrNull()

@@ -8,6 +8,7 @@ interface ArzookRepository {
     suspend fun getDailyStats(): Result<List<AveRates>>
     suspend fun getTradesList(): Result<List<TradeItem>>
     suspend fun getUSDTradesList(): Result<List<TradeItem>>
+    suspend fun getPublicCompliance(): Result<PublicCompliance>
 
     // Auth
     suspend fun login(request: LoginRequest): Result<LoginResponse>

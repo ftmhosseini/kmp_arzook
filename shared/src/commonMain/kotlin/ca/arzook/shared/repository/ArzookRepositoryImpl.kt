@@ -32,6 +32,12 @@ class ArzookRepositoryImpl(
         client.get("$baseUrl/api/main?min=0&max=2&displayDepositedOnly=false&selectedCurrencyCode=USD").body()
     }
 
+    override suspend fun getPublicCompliance(): Result<PublicCompliance> = safeCall {
+        val response = client.get("$baseUrl/api/public-config")
+        val bodyText = response.bodyAsText()
+        kotlinx.serialization.json.Json { ignoreUnknownKeys = true; coerceInputValues = true }.decodeFromString(PublicCompliance.serializer(), bodyText)
+    }
+
 
     private fun HttpRequestBuilder.withOrigin() {
         header("Origin", "https://arzook.ca")
@@ -173,10 +179,9 @@ class ArzookRepositoryImpl(
     }
 
     override suspend fun unlockTrade(token: String, id: String): Result<Unit> = safeCall {
-        client.post("$baseUrl/api/trading/unlock") {
+        client.delete("$baseUrl/api/trading/unlock/$id") {
             header(HttpHeaders.Authorization, token.bearer())
-            contentType(ContentType.Text.Plain)
-            setBody(id)
+//            contentType(ContentType.Text.Plain)
         }
         Unit
     }
